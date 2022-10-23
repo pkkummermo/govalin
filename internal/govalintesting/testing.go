@@ -25,6 +25,31 @@ type GovalinHTTP struct {
 	Host string
 }
 
+func (govalinHttp *GovalinHTTP) Head(path string) string {
+	url := govalinHttp.Host + path
+	response, err := govalinHttp.http.Head(url)
+	if err != nil {
+		log.Fatalf("HTTP: Failed to HEAD %s. %v", url, err)
+	}
+
+	data, err := response.ToString()
+	if err != nil {
+		log.Fatalf("HTTP: Failed decode HEAD response as string for %s. %v", url, err)
+	}
+
+	return data
+}
+
+func (govalinHttp *GovalinHTTP) HeadResponse(path string) *httpclient.Response {
+	url := govalinHttp.Host + path
+	response, err := govalinHttp.http.Head(url)
+	if err != nil {
+		log.Fatalf("HTTP: Failed to HEAD %s. %v", url, err)
+	}
+
+	return response
+}
+
 func (govalinHttp *GovalinHTTP) Get(path string, params ...any) string {
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Get(url, params...)
@@ -120,6 +145,31 @@ func (govalinHttp *GovalinHTTP) PatchResponse(path string, patchData map[string]
 	response, err := govalinHttp.http.Patch(url, patchData)
 	if err != nil {
 		log.Fatalf("HTTP: Failed to PATCH %s. %v", url, err)
+	}
+
+	return response
+}
+
+func (govalinHttp *GovalinHTTP) Options(path string, optionsData ...map[string]string) string {
+	url := govalinHttp.Host + path
+	response, err := govalinHttp.http.Options(url, optionsData...)
+	if err != nil {
+		log.Fatalf("HTTP: Failed to OPTIONS %s. %v", url, err)
+	}
+
+	data, err := response.ToString()
+	if err != nil {
+		log.Fatalf("HTTP: Failed decode OPTIONS response as string for %s. %v", url, err)
+	}
+
+	return data
+}
+
+func (govalinHttp *GovalinHTTP) OptionResponse(path string, optionsData ...map[string]string) *httpclient.Response {
+	url := govalinHttp.Host + path
+	response, err := govalinHttp.http.Options(url, optionsData...)
+	if err != nil {
+		log.Fatalf("HTTP: Failed to OPTIONS %s. %v", url, err)
 	}
 
 	return response

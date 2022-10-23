@@ -76,6 +76,40 @@ func TestPatch(t *testing.T) {
 	})
 }
 
+func TestOptions(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Options("/options", func(call *govalin.Call) {
+			call.Text("optionsgovalin")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"optionsgovalin",
+			http.Options("/options"),
+			"Should create options endpoint",
+		)
+	})
+}
+
+func TestHead(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Head("/head", func(call *govalin.Call) {
+			call.Header("govalin-header", "govalin")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"govalin",
+			http.HeadResponse("/head").Header.Get("govalin-header"),
+			"Should create head endpoint",
+		)
+	})
+}
+
 func TestDelete(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Delete("/delete", func(call *govalin.Call) {
