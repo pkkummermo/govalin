@@ -83,7 +83,7 @@ func (server *App) addMethod(method string, fullPath string, methodHandler Handl
 		if handler.Delete != nil {
 			log.Fatalf("DELETE already exists on path %s.", fullPath)
 		}
-		handler.Patch = methodHandler
+		handler.Delete = methodHandler
 	case http.MethodOptions:
 		if handler.Options != nil {
 			log.Fatalf("OPTIONS already exists on path %s.", fullPath)
@@ -164,6 +164,15 @@ func (server *App) Put(path string, handler HandlerFunc) *App {
 // other method handlers or route handlers.
 func (server *App) Patch(path string, handler HandlerFunc) *App {
 	server.addMethod(http.MethodPatch, server.currentFragment+path, handler)
+	return server
+}
+
+// Add a DELETE handler
+//
+// Add a DELETE handler based on where you are in a hierarchy composed from
+// other method handlers or route handlers.
+func (server *App) Delete(path string, handler HandlerFunc) *App {
+	server.addMethod(http.MethodDelete, server.currentFragment+path, handler)
 	return server
 }
 
