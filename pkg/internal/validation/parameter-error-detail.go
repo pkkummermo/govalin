@@ -3,7 +3,7 @@ package validation
 import (
 	"encoding/json"
 
-	"github.com/pkkummermo/govalin/pkg/input"
+	"github.com/pkkummermo/govalin/pkg/internal/input"
 )
 
 // ErrorDetail details an error.

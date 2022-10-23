@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pkkummermo/govalin/pkg/routing"
+	"github.com/pkkummermo/govalin/pkg/internal/routing"
 )
 
 type pathHandler struct {

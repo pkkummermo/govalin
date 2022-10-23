@@ -1,6 +1,6 @@
 package govalin
 
-import "github.com/pkkummermo/govalin/pkg/logging"
+import "github.com/pkkummermo/govalin/pkg/internal/logging"
 
 var (
 	log = logging.GetLogger()
