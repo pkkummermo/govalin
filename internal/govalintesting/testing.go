@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ddliu/go-httpclient"
-	"github.com/pkkummermo/govalin/pkg/govalin"
+	"github.com/pkkummermo/govalin"
 )
 
 const startupInMS = 1

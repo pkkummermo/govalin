@@ -3,8 +3,8 @@ package govalin_test
 import (
 	"testing"
 
+	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/internal/govalintesting"
-	"github.com/pkkummermo/govalin/pkg/govalin"
 	"github.com/stretchr/testify/assert"
 )
 
