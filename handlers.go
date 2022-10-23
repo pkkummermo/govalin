@@ -56,6 +56,8 @@ func (ph *pathHandler) GetHandlerByMethod(method string) HandlerFunc {
 		return ph.Patch
 	case http.MethodDelete:
 		return ph.Delete
+	case http.MethodOptions:
+		return ph.Options
 	default:
 		return nil
 	}
