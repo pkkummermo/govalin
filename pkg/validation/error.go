@@ -11,7 +11,12 @@ type Error struct {
 }
 
 func (validationError *Error) Error() string {
-	return fmt.Sprintf("%d - %s - %s", validationError.ErrorResponse.Status, validationError.ErrorResponse.Title, validationError.ErrorResponse.Details)
+	return fmt.Sprintf(
+		"%d - %s - %s",
+		validationError.ErrorResponse.Status,
+		validationError.ErrorResponse.Title,
+		validationError.ErrorResponse.Details,
+	)
 }
 
 // NewError returns an error based on a validation error response.

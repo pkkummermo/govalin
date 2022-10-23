@@ -26,6 +26,7 @@ type Call struct {
 	pathParams    map[string]string
 	bodyBytes     []byte
 	charset       string
+	Raw           raw
 }
 
 func newCallFromRequest(w http.ResponseWriter, req *http.Request, pathParams map[string]string) Call {
@@ -35,6 +36,10 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, pathParams map
 		status:     0,
 		pathParams: pathParams,
 		charset:    "utf-8",
+		Raw: raw{
+			W:   &w,
+			Req: req,
+		},
 	}
 }
 
@@ -137,7 +142,12 @@ func (call *Call) QueryParamOrDefault(key string, def string) string {
 // Get path param based on key.
 func (call *Call) PathParam(key string) string {
 	if _, ok := call.pathParams[key]; !ok {
-		log.Errorf("Tried to access non-existing path param '%s'. This is most likely an error and should be fixed. Available values are: %v", key, maps.Keys(call.pathParams))
+		log.Errorf(
+			"Tried to access non-existing path param '%s'."+
+				"This is most likely an error and should be fixed. Available values are: %v",
+			key,
+			maps.Keys(call.pathParams),
+		)
 	}
 
 	return call.pathParams[key]
@@ -321,12 +331,4 @@ func (call *Call) Error(err error) {
 			http.StatusInternalServerError,
 		),
 	).ErrorResponse)
-}
-
-// Raw exposes raw variables for the call which can be accessed directly.
-func (call *Call) Raw() *raw {
-	return &raw{
-		Req: call.req,
-		W:   &call.w,
-	}
 }
