@@ -159,10 +159,7 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 	if err != nil {
 		log.Fatalf("Could not find free port. %v", err)
 	}
-	testInstance, err := govalin.New()
-	if err != nil {
-		log.Fatalf("Failed to create test server. %v", err)
-	}
+	testInstance := govalin.New()
 	server := serverF(testInstance)
 
 	go func() {

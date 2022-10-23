@@ -36,8 +36,8 @@ type App struct {
 }
 
 // New creates a new Govalin App instance.
-func New() (*App, error) {
-	return &App{createdTime: time.Now(), port: defaultPort, currentFragment: "", mux: http.NewServeMux()}, nil
+func New() *App {
+	return &App{createdTime: time.Now(), port: defaultPort, currentFragment: "", mux: http.NewServeMux()}
 }
 
 // Add a route to the given path
