@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/pkkummermo/govalin/pkg/internal/validation"
+	"github.com/pkkummermo/govalin/internal/validation"
 	"golang.org/x/exp/maps"
 )
 

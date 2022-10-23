@@ -1,4 +1,4 @@
-package govalin
+package routing
 
 import "github.com/pkkummermo/govalin/internal/logging"
 

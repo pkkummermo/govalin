@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pkkummermo/govalin/pkg/internal/validation"
+	"github.com/pkkummermo/govalin/internal/validation"
 )
 
 const (

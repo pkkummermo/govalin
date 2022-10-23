@@ -1,6 +1,6 @@
 package govalintesting
 
-import "github.com/pkkummermo/govalin/pkg/internal/logging"
+import "github.com/pkkummermo/govalin/internal/logging"
 
 var (
 	log = logging.GetLogger()
