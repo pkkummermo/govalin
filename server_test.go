@@ -42,6 +42,53 @@ func TestPost(t *testing.T) {
 	})
 }
 
-func TestPut(t *testing.T) {}
+func TestPut(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Put("/put", func(call *govalin.Call) {
+			call.Text("putgovalin")
+		})
 
-func TestDelete(t *testing.T) {}
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"putgovalin",
+			http.Put("/put", nil),
+			"Should create put endpoint",
+		)
+	})
+}
+
+func TestPatch(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Patch("/patch", func(call *govalin.Call) {
+			call.Text("patchgovalin")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"patchgovalin",
+			http.Patch("/patch", nil),
+			"Should create patch endpoint",
+		)
+	})
+}
+
+func TestDelete(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Delete("/delete", func(call *govalin.Call) {
+			call.Text("deletegovalin")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"deletegovalin",
+			http.Delete("/delete"),
+			"Should create delete endpoint",
+		)
+	})
+}
