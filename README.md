@@ -12,6 +12,18 @@ To install govalin run:
 go get -u github.com/pkkummermo/govalin
 ```
 
+## Hello World
+
+```go
+func main() {
+	govalin.New().
+		Get("/test", func(call *govalin.Call) {
+			call.Text("Hello world")
+		}).
+		Start(7070)
+}
+```
+
 ## Motivation
 
 I love how fast and efficient go is. What I don't like, is how it doesn't create an easy way of creating HTTP APIs. Govalin focuses on pleasing those who want to create APIs without too much hassle, with a lean simple API.
