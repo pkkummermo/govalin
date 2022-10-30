@@ -189,3 +189,44 @@ func TestBefore(t *testing.T) {
 		)
 	})
 }
+
+func TestAfter(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/test", func(call *govalin.Call) {
+			call.Text("govalin")
+		})
+		app.After("/*", func(call *govalin.Call) {
+			call.Text("after")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"govalinafter",
+			http.Get("/test"),
+			"Should trigger endpoint and after",
+		)
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/test", func(call *govalin.Call) {
+			call.Text("govalin")
+		})
+		app.After("/test", func(call *govalin.Call) {
+			call.Text("after")
+		})
+		app.After("/*", func(call *govalin.Call) {
+			call.Text("after2")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"govalinafterafter2",
+			http.Get("/test"),
+			"Should trigger endpoint and multiple after",
+		)
+	})
+}
