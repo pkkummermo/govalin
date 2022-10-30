@@ -22,6 +22,12 @@ type raw struct {
 	Req *http.Request
 }
 
+// Call is used to interact with the request and response object
+//
+// It exposes several convenience methods for handling both path, query as well
+// as body for the request. It follows simple conventions for getting and setting
+// values and uses the same method for getting values from the request and setting
+// values on the response by having optional values.
 type Call struct {
 	config        *Config
 	status        int
