@@ -25,7 +25,7 @@ func (config *Config) Port(port uint16) {
 	config.server.port = port
 }
 
-// ServerMaxBodyReadSize sets the max read size to accept from form requests.
+// ServerMaxBodyReadSize sets the max read size to accept from POST requests.
 //
 // The server will error if the body size is too big and refuse to handle the
 // request further. This is to control DDoS attacks using big body sizes.
