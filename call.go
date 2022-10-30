@@ -62,7 +62,9 @@ func (call *Call) readBody() ([]byte, error) {
 	// If the size of bytes read and max body read size is the same, we could have a too big of a body.
 	// Try to read a single byte to see if the body still has any data
 	if len(bytes) == int(call.config.server.maxBodyReadSize) {
-		if numBytes, readError := call.req.Body.Read(make([]byte, 1)); readError == nil && numBytes == 1 {
+		numBytes, readError := call.req.Body.Read(make([]byte, 1))
+
+		if (readError == nil || errors.Is(readError, io.EOF)) && numBytes == 1 {
 			call.bodyBytes = []byte{}
 			return []byte{}, fmt.Errorf("request body was too big, could not read full body")
 		}
