@@ -230,3 +230,41 @@ func TestAfter(t *testing.T) {
 		)
 	})
 }
+
+func TestRoute(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Route("/test", func() {
+			app.Get("/get", func(call *govalin.Call) {
+				call.Text("routegovalin")
+			})
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"routegovalin",
+			http.Get("/test/get"),
+			"Should create endpoint within route",
+		)
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Route("/test", func() {
+			app.Route("/subroute", func() {
+				app.Get("/get", func(call *govalin.Call) {
+					call.Text("subroutegovalin")
+				})
+			})
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"subroutegovalin",
+			http.Get("/test/subroute/get"),
+			"Should create endpoint within nested routes",
+		)
+	})
+}
