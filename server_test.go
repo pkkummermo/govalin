@@ -126,3 +126,66 @@ func TestDelete(t *testing.T) {
 		)
 	})
 }
+
+func TestBefore(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Before("/*", func(call *govalin.Call) bool {
+			call.Text("before")
+			return true
+		})
+		app.Get("/test", func(call *govalin.Call) {
+			call.Text("govalin")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"beforegovalin",
+			http.Get("/test"),
+			"Should trigger before and then endpoint",
+		)
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Before("/*", func(call *govalin.Call) bool {
+			call.Text("before")
+			return false
+		})
+		app.Get("/test", func(call *govalin.Call) {
+			call.Text("govalin")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"before",
+			http.Get("/test"),
+			"Should trigger before and short circuit",
+		)
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Before("/*", func(call *govalin.Call) bool {
+			call.Text("before")
+			return true
+		})
+		app.Before("/test", func(call *govalin.Call) bool {
+			call.Text("before2")
+			return true
+		})
+		app.Get("/test", func(call *govalin.Call) {
+			call.Text("govalin")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"beforebefore2govalin",
+			http.Get("/test"),
+			"Should trigger multiple before and endpoint",
+		)
+	})
+}
