@@ -287,6 +287,7 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	call := newCallFromRequest(
 		w,
 		req,
+		server.config,
 		map[string]string{},
 	)
 

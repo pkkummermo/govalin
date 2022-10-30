@@ -19,7 +19,7 @@ type raw struct {
 }
 
 type Call struct {
-	config        Config
+	config        *Config
 	status        int
 	statusWritten bool
 	w             http.ResponseWriter
@@ -30,8 +30,9 @@ type Call struct {
 	Raw           raw
 }
 
-func newCallFromRequest(w http.ResponseWriter, req *http.Request, pathParams map[string]string) Call {
+func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config, pathParams map[string]string) Call {
 	return Call{
+		config:     config,
 		w:          w,
 		req:        req,
 		status:     0,
