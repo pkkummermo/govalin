@@ -10,22 +10,12 @@ import (
 	"github.com/pkkummermo/govalin/internal/validation"
 )
 
-const (
-	// govalin default port.
-	defaultPort = 6060
-	// maximum read timeout for requests.
-	maxReadTimeout = 10
-	// TODO: Find a nice max body read size.
-	maxBodyReadSize int64 = 4096
-	// Max time for shutdown.
-	shutdownTimeoutInMS = 200
-)
-
 type HandlerFunc func(call *Call)
 type BeforeFunc func(call *Call) bool
 type AfterFunc func(call *Call)
 
 type App struct {
+	config          *Config
 	createdTime     time.Time
 	started         bool
 	port            uint16
@@ -36,8 +26,19 @@ type App struct {
 }
 
 // New creates a new Govalin App instance.
-func New() *App {
-	return &App{createdTime: time.Now(), port: defaultPort, currentFragment: "", mux: http.NewServeMux()}
+func New(config ...ConfigFunc) *App {
+	initConfig := newConfig()
+
+	if len(config) > 0 {
+		config[0](initConfig)
+	}
+
+	return &App{
+		config:          initConfig,
+		createdTime:     time.Now(),
+		currentFragment: "",
+		mux:             http.NewServeMux(),
+	}
 }
 
 // Add a route to the given path
@@ -206,12 +207,14 @@ func (server *App) Start(port ...uint16) error {
 
 	if len(port) > 0 {
 		server.port = port[0]
+	} else {
+		server.port = server.config.server.port
 	}
 
 	server.mux.HandleFunc("/", server.rootHandlerFunc)
 
 	server.server = http.Server{
-		ReadHeaderTimeout: time.Second * maxReadTimeout,
+		ReadHeaderTimeout: time.Second * time.Duration(server.config.server.maxReadTimeout),
 		Addr:              fmt.Sprintf(":%d", server.port),
 		Handler:           server.mux,
 	}
@@ -238,7 +241,10 @@ func (server *App) Shutdown() error {
 
 	log.Infof("Shutting down govalin. Server ran for %v 👋", time.Since(server.createdTime))
 
-	ctx, closeFunc := context.WithTimeout(context.Background(), shutdownTimeoutInMS*time.Millisecond)
+	ctx, closeFunc := context.WithTimeout(
+		context.Background(),
+		time.Duration(server.config.server.shutdownTimeoutInMS)*time.Millisecond,
+	)
 	defer closeFunc()
 
 	return server.server.Shutdown(ctx)

@@ -19,6 +19,7 @@ type raw struct {
 }
 
 type Call struct {
+	config        Config
 	status        int
 	statusWritten bool
 	w             http.ResponseWriter
@@ -49,7 +50,7 @@ func (call *Call) readBody() ([]byte, error) {
 		return call.bodyBytes, nil
 	}
 
-	limitedReader := io.LimitReader(call.req.Body, maxBodyReadSize)
+	limitedReader := io.LimitReader(call.req.Body, call.config.server.maxBodyReadSize)
 
 	bytes, err := io.ReadAll(limitedReader)
 	if err != nil {
@@ -59,7 +60,7 @@ func (call *Call) readBody() ([]byte, error) {
 
 	// If the size of bytes read and max body read size is the same, we could have a too big of a body.
 	// Try to read a single byte to see if the body still has any data
-	if len(bytes) == int(maxBodyReadSize) {
+	if len(bytes) == int(call.config.server.maxBodyReadSize) {
 		if numBytes, readError := call.req.Body.Read(make([]byte, 1)); readError == nil && numBytes == 1 {
 			call.bodyBytes = []byte{}
 			return []byte{}, fmt.Errorf("request body was too big, could not read full body")
