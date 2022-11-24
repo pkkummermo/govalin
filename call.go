@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strings"
 
@@ -138,19 +139,21 @@ func (call *Call) sendStatusOrDefault() {
 // Parses the body as a www-form-urlencoded body. If the content type is not correct
 // a warning is given and an empty string is returned.
 func (call *Call) FormParam(key string) string {
-	if !strings.Contains(call.Header("Content-Type"), "application/x-www-form-urlencoded") {
-		log.Warn("POST request is missing the correct content-type to parse form param")
-		return ""
-	}
-
-	err := call.req.ParseForm()
-
+	err := call.parseForm()
 	if err != nil {
-		log.Errorf("Failed to parse form data", err)
 		return ""
 	}
 
 	return call.req.Form.Get(key)
+}
+
+func (call *Call) FormParams() url.Values {
+	err := call.parseForm()
+	if err != nil {
+		return make(url.Values)
+	}
+
+	return call.req.Form
 }
 
 // Get form param value by key, if empty, use default
