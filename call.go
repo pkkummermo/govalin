@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -154,6 +155,44 @@ func (call *Call) FormParams() url.Values {
 	}
 
 	return call.req.Form
+}
+
+func (call *Call) File(key string) (*multipart.FileHeader, error) {
+	err := call.parseForm()
+	if err != nil {
+		return nil, err
+	}
+
+	if file, ok := call.req.MultipartForm.File[key]; ok {
+		return file[0], nil
+	}
+
+	return nil, validation.NewError(validation.NewErrorResponse(
+		http.StatusBadRequest,
+		validation.NewParameterErrorDetail(
+			key,
+			fmt.Sprintf("Missing file with name '%s'", key),
+		),
+	))
+}
+
+func (call *Call) Files(key string) ([]*multipart.FileHeader, error) {
+	err := call.parseForm()
+	if err != nil {
+		return nil, err
+	}
+
+	if file, ok := call.req.MultipartForm.File[key]; ok {
+		return file, nil
+	}
+
+	return nil, validation.NewError(validation.NewErrorResponse(
+		http.StatusBadRequest,
+		validation.NewParameterErrorDetail(
+			key,
+			fmt.Sprintf("Missing files with name '%s'", key),
+		),
+	))
 }
 
 // Get form param value by key, if empty, use default
