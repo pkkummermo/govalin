@@ -75,6 +75,51 @@ func (call *Call) readBody() ([]byte, error) {
 	return call.bodyBytes, nil
 }
 
+// parseForm parses the internal request form based on Content-Type. If the Content-Type
+// is not recognized, it returns a validation error.
+func (call *Call) parseForm() error {
+	contentType := call.Header("Content-Type")
+
+	switch {
+	case strings.Contains(contentType, "application/x-www-form-urlencoded"):
+		err := call.req.ParseForm()
+		if err != nil {
+			log.Errorf("Failed to parse form data", err)
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(
+					"formData",
+					"Invalid form data",
+				),
+			))
+		}
+		return nil
+	case strings.Contains(contentType, "multipart/form-data"):
+		err := call.req.ParseMultipartForm(0)
+		if err != nil {
+			log.Errorf("Failed to parse form data", err)
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(
+					"formData",
+					"Invalid form data",
+				),
+			))
+		}
+
+		return nil
+	default:
+		log.Warn("POST request is missing the correct content-type to parse form param")
+		return validation.NewError(validation.NewErrorResponse(
+			http.StatusBadRequest,
+			validation.NewParameterErrorDetail(
+				"Content-Type",
+				"Missing or invalid Content-Type header. Muse be multipart/form-data or application/x-www-form-urlencoded",
+			),
+		))
+	}
+}
+
 func (call *Call) sendStatusOrDefault() {
 	if call.statusWritten {
 		return
