@@ -139,22 +139,22 @@ func (call *Call) sendStatusOrDefault() {
 //
 // Parses the body as a www-form-urlencoded body. If the content type is not correct
 // a warning is given and an empty string is returned.
-func (call *Call) FormParam(key string) string {
+func (call *Call) FormParam(key string) (string, error) {
 	err := call.parseForm()
 	if err != nil {
-		return ""
+		return "", err
 	}
 
-	return call.req.Form.Get(key)
+	return call.req.Form.Get(key), nil
 }
 
-func (call *Call) FormParams() url.Values {
+func (call *Call) FormParams() (url.Values, error) {
 	err := call.parseForm()
 	if err != nil {
-		return make(url.Values)
+		return make(url.Values), err
 	}
 
-	return call.req.Form
+	return call.req.Form, nil
 }
 
 func (call *Call) File(key string) (*multipart.FileHeader, error) {
@@ -200,9 +200,9 @@ func (call *Call) Files(key string) ([]*multipart.FileHeader, error) {
 // Get a form param value based on given key from the request,
 // or use the given default value if the value is an empty string.
 func (call *Call) FormParamOrDefault(key string, def string) string {
-	formParam := call.FormParam(key)
+	formParam, err := call.FormParam(key)
 
-	if formParam == "" {
+	if formParam == "" || err != nil {
 		return def
 	}
 
