@@ -7,6 +7,8 @@ const (
 	defaultShutdownTimeoutInMS       = 200  // Max time for shutdown.
 )
 
+// ConfigFunc gives a config function that will generate a Config
+// for the Govalin object.
 type ConfigFunc func(config *Config)
 
 type serverConfig struct {
@@ -14,10 +16,18 @@ type serverConfig struct {
 	maxReadTimeout      int64
 	maxBodyReadSize     int64
 	shutdownTimeoutInMS int64
+	plugins             []Plugin
 }
 
+// Config contains configuration for a Govalin instance.
 type Config struct {
 	server serverConfig
+}
+
+// Plugin lets you to provide a Plugin that can interact on the Govalin
+// instance.
+func (config *Config) Plugin(plugin Plugin) {
+	config.server.plugins = append(config.server.plugins, plugin)
 }
 
 // Port sets the default port of the Govalin instance.
