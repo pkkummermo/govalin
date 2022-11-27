@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/pkkummermo/govalin/internal/http/contenttypes"
+	"github.com/pkkummermo/govalin/internal/http/headers"
 	"github.com/pkkummermo/govalin/internal/validation"
 	"golang.org/x/exp/maps"
 )
@@ -80,10 +82,10 @@ func (call *Call) readBody() ([]byte, error) {
 // parseForm parses the internal request form based on Content-Type. If the Content-Type
 // is not recognized, it returns a validation error.
 func (call *Call) parseForm() error {
-	contentType := call.Header("Content-Type")
+	contentType := call.Header(headers.ContentType)
 
 	switch {
-	case strings.Contains(contentType, "application/x-www-form-urlencoded"):
+	case strings.Contains(contentType, contenttypes.ApplicationFormURLEncoded):
 		err := call.req.ParseForm()
 		if err != nil {
 			log.Errorf("Failed to parse form data", err)
@@ -96,7 +98,7 @@ func (call *Call) parseForm() error {
 			))
 		}
 		return nil
-	case strings.Contains(contentType, "multipart/form-data"):
+	case strings.Contains(contentType, contenttypes.MultipartFormData):
 		err := call.req.ParseMultipartForm(0)
 		if err != nil {
 			log.Errorf("Failed to parse form data", err)
@@ -115,8 +117,10 @@ func (call *Call) parseForm() error {
 		return validation.NewError(validation.NewErrorResponse(
 			http.StatusBadRequest,
 			validation.NewParameterErrorDetail(
-				"Content-Type",
-				"Missing or invalid Content-Type header. Muse be multipart/form-data or application/x-www-form-urlencoded",
+				headers.ContentType,
+				"Missing or invalid '"+headers.ContentType+"' header. "+
+					"Must be '"+contenttypes.MultipartFormData+"' or "+
+					"'"+contenttypes.ApplicationFormURLEncoded+"'",
 			),
 		))
 	}
