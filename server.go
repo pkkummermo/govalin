@@ -288,8 +288,6 @@ func (server *App) getPathHandlerByPath(path string) (*pathHandler, error) {
 func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Server", "govalin")
 
-	handled := false
-
 	call := newCallFromRequest(
 		w,
 		req,
@@ -301,7 +299,6 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	for _, pathHandler := range server.pathHandlers {
 		if pathHandler.Before != nil && pathHandler.PathMatcher.MatchesURL(req.URL.Path) {
 			call.pathParams = pathHandler.PathMatcher.PathParams(req.URL.Path)
-			handled = true
 			if !pathHandler.Before(&call) {
 				return
 			}
@@ -314,7 +311,6 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 			var handler = pathHandler.GetHandlerByMethod(req.Method)
 			call.pathParams = pathHandler.PathMatcher.PathParams(req.URL.Path)
 			handler(&call)
-			handled = true
 			break
 		}
 	}
@@ -323,19 +319,18 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	for _, pathHandler := range server.pathHandlers {
 		if pathHandler.After != nil && pathHandler.PathMatcher.MatchesURL(req.URL.Path) {
 			call.pathParams = pathHandler.PathMatcher.PathParams(req.URL.Path)
-			handled = true
 			pathHandler.After(&call)
 		}
-	}
-
-	if handled {
-		return
 	}
 
 	server.notFoundHandler(&call)
 }
 
 func (server *App) notFoundHandler(call *Call) {
+	if call.Status() != 0 {
+		return
+	}
+
 	call.Status(http.StatusNotFound)
 	call.JSON(validation.NewError(
 		validation.NewErrorResponse(
