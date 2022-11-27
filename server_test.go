@@ -127,6 +127,16 @@ func TestDelete(t *testing.T) {
 	})
 }
 
+func TestNotFoundHandler(t *testing.T) {
+	govalintesting.HTTPTestUtil(
+		func(app *govalin.App) *govalin.App { return app },
+		func(http govalintesting.GovalinHTTP) {
+			response, _ := http.Raw().Get(http.Host + "/nonExistingPath")
+			assert.Equal(t, 404, response.StatusCode)
+		},
+	)
+}
+
 func TestBefore(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Before("/*", func(call *govalin.Call) bool {
