@@ -225,6 +225,7 @@ func (server *App) Start(port ...uint16) error {
 	}
 
 	log.Infof("Started govalin on port %d. Startup took %s 💪", server.port, time.Since(server.createdTime))
+	log.Infof("Server can be accessed at http://localhost:%d", server.port)
 	if err := server.server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
