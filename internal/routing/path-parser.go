@@ -43,8 +43,8 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 		groupRegexpParts = append(groupRegexpParts, ps.GroupedRegex)
 	}
 
-	fullGroupedRegexpString := "/" + strings.Join(groupRegexpParts, "/") + "$"
-	fullRegexpString := "/" + strings.Join(regexpParts, "/") + "$"
+	fullGroupedRegexpString := strings.Join(groupRegexpParts, "/") + "$"
+	fullRegexpString := strings.Join(regexpParts, "/") + "$"
 
 	return PathMatcher{
 		path:           path,
