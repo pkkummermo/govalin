@@ -127,6 +127,19 @@ func TestShouldHaveDefaultsEnabledForSimpleConfiguration(t *testing.T) {
 	})
 }
 
+func TestNotFoundHandlerStillTriggers(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		return govalin.New(func(config *govalin.Config) {
+			config.Plugin(cors.New().Enable(func(config *cors.ConfigFunc) {
+				config.AllowAllOrigins()
+			}))
+		}).Get("/govalin", func(call *govalin.Call) { call.Text("govalin") })
+	}, func(http govalintesting.GovalinHTTP) {
+		response, _ := http.Raw().Get(http.Host + "/nonexisting")
+		assert.Equal(t, 404, response.StatusCode)
+	})
+}
+
 func TestShouldExitOnAddNullOrigin(t *testing.T) {
 	exitCode := govalintesting.TestExit(
 		t,
