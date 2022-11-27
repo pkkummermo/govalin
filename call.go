@@ -297,13 +297,12 @@ func (call *Call) HeaderOrDefault(key string, def string) string {
 //
 // If the status has already been set, a warning will be printed. The status will not be
 // written to the response until a JSON/Text/HTML-call is made.
-func (call *Call) Status(statusCode int) {
-	if call.status != 0 {
-		log.Warnf("Tried to overwrite already existing status %d with %d", call.status, statusCode)
-		return
+func (call *Call) Status(statusCode ...int) int {
+	if len(statusCode) > 0 {
+		call.status = statusCode[0]
 	}
 
-	call.status = statusCode
+	return call.status
 }
 
 // Send text as pure text to response
