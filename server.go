@@ -211,6 +211,11 @@ func (server *App) Start(port ...uint16) error {
 		server.port = server.config.server.port
 	}
 
+	// Initialize all plugins
+	for _, plugin := range server.config.server.plugins {
+		plugin.Apply(server)
+	}
+
 	server.mux.HandleFunc("/", server.rootHandlerFunc)
 
 	server.server = http.Server{
