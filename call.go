@@ -158,6 +158,7 @@ func (call *Call) FormParam(key string) (string, error) {
 	return call.req.Form.Get(key), nil
 }
 
+// FormParams returns all form parameters available in the request body.
 func (call *Call) FormParams() (url.Values, error) {
 	err := call.parseForm()
 	if err != nil {
@@ -167,6 +168,7 @@ func (call *Call) FormParams() (url.Values, error) {
 	return call.req.Form, nil
 }
 
+// File returns a FileHeader for given file name in the request body.
 func (call *Call) File(key string) (*multipart.FileHeader, error) {
 	err := call.parseForm()
 	if err != nil {
@@ -186,6 +188,7 @@ func (call *Call) File(key string) (*multipart.FileHeader, error) {
 	))
 }
 
+// Files returns an array for the given file name in the request body.
 func (call *Call) Files(key string) ([]*multipart.FileHeader, error) {
 	err := call.parseForm()
 	if err != nil {
