@@ -322,7 +322,7 @@ func (call *Call) Header(key string, value ...string) string {
 		return value[0]
 	}
 
-	if key == "Host" {
+	if key == headers.Host {
 		return call.req.Host
 	}
 
