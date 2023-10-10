@@ -146,6 +146,37 @@ func (call *Call) sendStatusOrDefault() {
 	call.statusWritten = true
 }
 
+// Method returns the method for the current request.
+func (call *Call) Method() string {
+	return call.req.Method
+}
+
+// Authorization returns the Authorization header if available.
+func (call *Call) Authorization() string {
+	return call.Header(headers.Authorization)
+}
+
+// Host returns the host of the current request.
+func (call *Call) Host() string {
+	return call.Header(headers.Host)
+}
+
+// Referer returns the requests referer header if available. Also handles the edge
+// case if the name of the header names spelling is correct (referrer).
+func (call *Call) Referer() string {
+	return call.Header(headers.Referer)
+}
+
+// UserAgent returns the request UserAgent if available.
+func (call *Call) UserAgent() string {
+	return call.Header(headers.UserAgent)
+}
+
+// URL returns the requested URI.
+func (call *Call) URL() *url.URL {
+	return call.req.URL
+}
+
 // Get the value of given form param key
 //
 // Parses the body as a www-form-urlencoded body. If the content type is not correct
