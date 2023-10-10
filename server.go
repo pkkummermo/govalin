@@ -337,7 +337,7 @@ func (server *App) notFoundHandler(call *Call) {
 			http.StatusNotFound,
 			validation.NewParameterErrorDetail(
 				"path",
-				fmt.Sprintf("The path '%s' doesn't exist", call.Raw.Req.URL),
+				fmt.Sprintf("The path '%s' doesn't exist", call.URL()),
 			),
 		),
 	).ErrorResponse)
