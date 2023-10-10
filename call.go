@@ -48,7 +48,7 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 		req:        req,
 		status:     0,
 		pathParams: pathParams,
-		charset:    "utf-8",
+		charset:    charsets.UTF8,
 		Raw: raw{
 			W:   &w,
 			Req: req,
