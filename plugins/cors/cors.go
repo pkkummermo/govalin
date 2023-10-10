@@ -40,7 +40,7 @@ func New() *Config {
 func (config *Config) Apply(app *govalin.App) {
 	app.Before("*", config.handleCors)
 	app.After("*", func(call *govalin.Call) {
-		if call.Raw.Req.Method == http.MethodOptions {
+		if call.Method() == http.MethodOptions {
 			call.Status(http.StatusOK)
 		}
 	})
