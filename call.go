@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/pkkummermo/govalin/internal/http/charsets"
 	"github.com/pkkummermo/govalin/internal/http/contenttypes"
 	"github.com/pkkummermo/govalin/internal/http/headers"
@@ -30,6 +31,7 @@ type raw struct {
 // values and uses the same method for getting values from the request and setting
 // values on the response by having optional values.
 type Call struct {
+	id            string
 	config        *Config
 	status        int
 	statusWritten bool
@@ -42,7 +44,17 @@ type Call struct {
 }
 
 func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config, pathParams map[string]string) Call {
-	return Call{
+	govalinIDHeader := req.Header[http.CanonicalHeaderKey("x-govalin-id")]
+
+	var uniqueID string
+	if govalinIDHeader == nil {
+		uniqueID = uuid.New().String()
+	} else {
+		uniqueID = govalinIDHeader[0]
+	}
+
+	call := Call{
+		id:         uniqueID,
 		config:     config,
 		w:          w,
 		req:        req,
@@ -54,6 +66,8 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 			Req: req,
 		},
 	}
+
+	return call
 }
 
 // readBody reads the body as bytes and caches the value on call.
@@ -144,6 +158,11 @@ func (call *Call) sendStatusOrDefault() {
 
 	call.w.WriteHeader(call.status)
 	call.statusWritten = true
+}
+
+// ID gives an UUIDv4 string that's unique to the call.
+func (call *Call) ID() string {
+	return call.id
 }
 
 // Method returns the method for the current request.

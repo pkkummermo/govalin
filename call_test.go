@@ -166,3 +166,37 @@ func TestCookies(t *testing.T) {
 		)
 	})
 }
+
+func TestRequestID(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/govalin", func(call *govalin.Call) {
+			call.Text(call.ID())
+		})
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		body := http.Get("/govalin")
+
+		assert.NotEmpty(
+			t,
+			body,
+			"Should generate a unique request ID",
+		)
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/govalin", func(call *govalin.Call) {
+			call.Text(call.ID())
+		})
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		response, _ := http.Raw().WithHeader("X-Govalin-Id", "govalin").Get(http.Host + "/govalin")
+		govalinID, _ := response.ToString()
+
+		assert.Equal(
+			t,
+			govalinID,
+			"govalin",
+			"Should reuse given ID",
+		)
+	})
+}
