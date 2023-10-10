@@ -1,6 +1,7 @@
 package govalin_test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/pkkummermo/govalin"
@@ -112,6 +113,56 @@ func TestHeaders(t *testing.T) {
 			http.GetResponse("/headers").Header.Get("Test-Header"),
 			"govalin",
 			"Should parse and return given header when given canonical header",
+		)
+	})
+}
+
+func TestCookies(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/cookies", func(call *govalin.Call) {
+			govalinCookie, err := call.Cookie("govalin")
+
+			if err != nil {
+				call.Text(err.Error())
+				return
+			}
+
+			call.Text(govalinCookie.Name)
+		})
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		response, _ := http.Raw().WithHeader("Cookie", "govalin=govalin").Get(http.Host + "/cookies")
+		body, _ := response.ToString()
+
+		assert.Equal(
+			t,
+			body,
+			"govalin",
+			"Should parse and return given cookie value",
+		)
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/setcookies", func(call *govalin.Call) {
+			_, err := call.Cookie("govalin", &http.Cookie{Value: "govalin"})
+
+			if err != nil {
+				call.Text(err.Error())
+				return
+			}
+
+			call.Status(204)
+		})
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		response, _ := http.Raw().Get(http.Host + "/setcookies")
+		setCookieHeader := response.Header.Get("Set-Cookie")
+
+		assert.Equal(
+			t,
+			setCookieHeader,
+			"govalin=govalin",
+			"Should set correct header when setting cookie",
 		)
 	})
 }
