@@ -177,6 +177,19 @@ func (call *Call) URL() *url.URL {
 	return call.req.URL
 }
 
+// Get or set a Cookie by name and value
+//
+// Get a Cookie based on given Cookie name request
+// or set a Cookie on the response by providing a value.
+func (call *Call) Cookie(name string, cookies ...*http.Cookie) (*http.Cookie, error) {
+	if len(cookies) > 0 {
+		cookies[0].Name = name
+		http.SetCookie(call.w, cookies[0])
+	}
+
+	return call.req.Cookie(name)
+}
+
 // Get the value of given form param key
 //
 // Parses the body as a www-form-urlencoded body. If the content type is not correct
