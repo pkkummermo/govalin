@@ -41,7 +41,7 @@ type Call struct {
 	pathParams    map[string]string
 	bodyBytes     []byte
 	charset       string
-	Raw           raw
+	Raw           raw // Raw contains the raw request and response
 }
 
 func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config, pathParams map[string]string) Call {
