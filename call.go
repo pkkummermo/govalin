@@ -17,6 +17,7 @@ import (
 	"github.com/pkkummermo/govalin/internal/http/headers"
 	"github.com/pkkummermo/govalin/internal/validation"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slog"
 )
 
 type raw struct {
@@ -109,7 +110,7 @@ func (call *Call) parseForm() error {
 	case strings.Contains(contentType, contenttypes.ApplicationFormURLEncoded):
 		err := call.req.ParseForm()
 		if err != nil {
-			log.Errorf("Failed to parse form data", err)
+			slog.Error("Failed to parse form data", err)
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
 				validation.NewParameterErrorDetail(
@@ -122,7 +123,7 @@ func (call *Call) parseForm() error {
 	case strings.Contains(contentType, contenttypes.MultipartFormData):
 		err := call.req.ParseMultipartForm(0)
 		if err != nil {
-			log.Errorf("Failed to parse form data", err)
+			slog.Error("Failed to parse form data", err)
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
 				validation.NewParameterErrorDetail(
@@ -134,7 +135,7 @@ func (call *Call) parseForm() error {
 
 		return nil
 	default:
-		log.Warn("POST request is missing the correct content-type to parse form param")
+		slog.Warn("POST request is missing the correct content-type to parse form param")
 		return validation.NewError(validation.NewErrorResponse(
 			http.StatusBadRequest,
 			validation.NewParameterErrorDetail(
@@ -310,11 +311,13 @@ func (call *Call) QueryParamOrDefault(key string, def string) string {
 // Get path param based on key.
 func (call *Call) PathParam(key string) string {
 	if _, ok := call.pathParams[key]; !ok {
-		log.Errorf(
-			"Tried to access non-existing path param '%s'."+
-				"This is most likely an error and should be fixed. Available values are: %v",
-			key,
-			maps.Keys(call.pathParams),
+		slog.Error(
+			fmt.Sprintf(
+				"Tried to access non-existing path param '%s'."+
+					"This is most likely an error and should be fixed. Available values are: %v",
+				key,
+				maps.Keys(call.pathParams),
+			),
 		)
 	}
 
@@ -388,7 +391,7 @@ func (call *Call) Text(text string) {
 
 	_, err := call.w.Write([]byte(text))
 	if err != nil {
-		log.Errorf("Error when trying write to response, %v", err)
+		slog.Error(fmt.Sprintf("Error when trying write to response, %v", err))
 	}
 }
 
@@ -402,7 +405,7 @@ func (call *Call) HTML(text string) {
 
 	_, err := call.w.Write([]byte(text))
 	if err != nil {
-		log.Errorf("Error when trying write to response, %v", err)
+		slog.Error(fmt.Sprintf("Error when trying write to response, %v", err))
 	}
 }
 
@@ -416,7 +419,7 @@ func (call *Call) JSON(obj interface{}) {
 	jsonBytes, err := json.Marshal(obj)
 
 	if err != nil {
-		log.Errorf("error when trying to JSON marshall object, %v", err)
+		slog.Error(fmt.Sprintf("error when trying to JSON marshall object, %v", err))
 	}
 
 	call.sendStatusOrDefault()
@@ -424,7 +427,7 @@ func (call *Call) JSON(obj interface{}) {
 	_, err = call.w.Write(jsonBytes)
 
 	if err != nil {
-		log.Errorf("error when trying write to response, %v", err)
+		slog.Error(fmt.Sprintf("error when trying write to response, %v", err))
 	}
 }
 
@@ -481,7 +484,11 @@ func (call *Call) Error(err error) {
 			return
 		}
 
-		log.Warnf("Unknown govalin error %w. Original err: %w. Error not handled", govalinErr, govalinErr.originalError)
+		slog.Warn(
+			fmt.Sprintf(
+				"Unknown govalin error %v. Original err: %v. Error not handled", govalinErr, govalinErr.originalError,
+			),
+		)
 
 		return
 	}

@@ -1,7 +1,11 @@
 package govalintesting
 
-import "github.com/pkkummermo/govalin/internal/logging"
+import (
+	"os"
+
+	"golang.org/x/exp/slog"
+)
 
 var (
-	log = logging.GetLogger()
+	log = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 )
