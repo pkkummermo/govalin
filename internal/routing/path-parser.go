@@ -3,6 +3,8 @@ package routing
 import (
 	"regexp"
 	"strings"
+
+	"golang.org/x/exp/slog"
 )
 
 type PathMatcher struct {
@@ -68,7 +70,7 @@ func (path *PathMatcher) PathParams(url string) map[string]string {
 	pathParams := path.regexp.FindStringSubmatch(url)
 
 	if len(pathParams) != len(path.pathParamNames)+1 {
-		log.Errorf("The number of path params is not the same as configured path names")
+		slog.Error("The number of path params is not the same as configured path names")
 		return pathparamMap
 	}
 

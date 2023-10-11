@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/pkkummermo/govalin/internal/validation"
+	"golang.org/x/exp/slog"
 )
 
 type HandlerFunc func(call *Call)
@@ -62,41 +64,48 @@ func (server *App) addMethod(method string, fullPath string, methodHandler Handl
 	switch method {
 	case http.MethodGet:
 		if handler.Get != nil {
-			log.Fatalf("GET already exists on path %s.", fullPath)
+			slog.Error(fmt.Sprintf("GET already exists on path %s.", fullPath))
+			os.Exit(1)
 		}
 		handler.Get = methodHandler
 	case http.MethodPost:
 		if handler.Post != nil {
-			log.Fatalf("POST already exists on path %s.", fullPath)
+			slog.Error(fmt.Sprintf("POST already exists on path %s.", fullPath))
+			os.Exit(1)
 		}
 		handler.Post = methodHandler
 	case http.MethodPut:
 		if handler.Put != nil {
-			log.Fatalf("PUT already exists on path %s.", fullPath)
+			slog.Error(fmt.Sprintf("PUT already exists on path %s.", fullPath))
+			os.Exit(1)
 		}
 		handler.Put = methodHandler
 	case http.MethodPatch:
 		if handler.Patch != nil {
-			log.Fatalf("PATCH already exists on path %s.", fullPath)
+			slog.Error(fmt.Sprintf("PATCH already exists on path %s.", fullPath))
+			os.Exit(1)
 		}
 		handler.Patch = methodHandler
 	case http.MethodDelete:
 		if handler.Delete != nil {
-			log.Fatalf("DELETE already exists on path %s.", fullPath)
+			slog.Error(fmt.Sprintf("DELETE already exists on path %s.", fullPath))
+			os.Exit(1)
 		}
 		handler.Delete = methodHandler
 	case http.MethodOptions:
 		if handler.Options != nil {
-			log.Fatalf("OPTIONS already exists on path %s.", fullPath)
+			slog.Error(fmt.Sprintf("OPTIONS already exists on path %s.", fullPath))
+			os.Exit(1)
 		}
 		handler.Options = methodHandler
 	case http.MethodHead:
 		if handler.Head != nil {
-			log.Fatalf("HEAD already exists on path %s.", fullPath)
+			slog.Error(fmt.Sprintf("HEAD already exists on path %s.", fullPath))
+			os.Exit(1)
 		}
 		handler.Head = methodHandler
 	default:
-		log.Warnf("Unhandled method %s on path %s", method, fullPath)
+		slog.Warn(fmt.Sprintf("Unhandled method %s on path %s", method, fullPath))
 		return
 	}
 }
@@ -111,7 +120,8 @@ func (server *App) Before(path string, beforeFunc BeforeFunc) {
 	var handler = server.getOrCreatePathHandlerByPath(fullPath)
 
 	if handler.Before != nil {
-		log.Fatalf("Before already exists on path %s.", fullPath)
+		slog.Error(fmt.Sprintf("Before already exists on path %s.", fullPath))
+		os.Exit(1)
 	}
 
 	handler.Before = beforeFunc
@@ -126,7 +136,8 @@ func (server *App) After(path string, afterFunc AfterFunc) {
 	var handler = server.getOrCreatePathHandlerByPath(fullPath)
 
 	if handler.After != nil {
-		log.Fatalf("Before already exists on path %s.", fullPath)
+		slog.Error(fmt.Sprintf("Before already exists on path %s.", fullPath))
+		os.Exit(1)
 	}
 
 	handler.After = afterFunc
@@ -200,7 +211,7 @@ func (server *App) Head(path string, handler HandlerFunc) *App {
 // Start the server based on given configuration.
 func (server *App) Start(port ...uint16) error {
 	if server.started {
-		log.Warn("Server is already started")
+		slog.Warn("Server is already started")
 		return fmt.Errorf("server has already started")
 	}
 	server.started = true
@@ -224,8 +235,8 @@ func (server *App) Start(port ...uint16) error {
 		Handler:           server.mux,
 	}
 
-	log.Infof("Started govalin on port %d. Startup took %s 💪", server.port, time.Since(server.createdTime))
-	log.Infof("Server can be accessed at http://localhost:%d", server.port)
+	slog.Info(fmt.Sprintf("Started govalin on port %d. Startup took %s 💪", server.port, time.Since(server.createdTime)))
+	slog.Info(fmt.Sprintf("Server can be accessed at http://localhost:%d", server.port))
 	if err := server.server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
@@ -241,11 +252,11 @@ func (server *App) Start(port ...uint16) error {
 // Start a graceful shutdown of the govalin instance.
 func (server *App) Shutdown() error {
 	if !server.started {
-		log.Warn("Server was not started")
+		slog.Warn("Server was not started")
 		return nil
 	}
 
-	log.Infof("Shutting down govalin. Server ran for %v 👋", time.Since(server.createdTime))
+	slog.Info(fmt.Sprintf("Shutting down govalin. Server ran for %v 👋", time.Since(server.createdTime)))
 
 	ctx, closeFunc := context.WithTimeout(
 		context.Background(),
@@ -262,13 +273,15 @@ func (server *App) getOrCreatePathHandlerByPath(path string) *pathHandler {
 	}
 	newHandler, pathHandlerErr := newPathHandlerFromPathFragment(path)
 	if pathHandlerErr != nil {
-		log.Fatalf("Failed to create before handler for path '%s'. Err %v", path, pathHandlerErr)
+		slog.Error(fmt.Sprintf("Failed to create before handler for path '%s'. Err %v", path, pathHandlerErr))
+		os.Exit(1)
 	}
 
 	server.pathHandlers = append(server.pathHandlers, newHandler)
 	handler, err := server.getPathHandlerByPath(path)
 	if err != nil {
-		log.Fatalf("Failed to retrieve newly created handler for path '%s'. Err %v", path, err)
+		slog.Error(fmt.Sprintf("Failed to retrieve newly created handler for path '%s'. Err %v", path, err))
+		os.Exit(1)
 	}
 	return handler
 }
