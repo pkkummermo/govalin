@@ -3,7 +3,7 @@ package govalintesting
 import (
 	"os"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 var (
