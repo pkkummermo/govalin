@@ -8,8 +8,9 @@ import (
 	"os"
 	"time"
 
+	"log/slog"
+
 	"github.com/pkkummermo/govalin/internal/validation"
-	"golang.org/x/exp/slog"
 )
 
 type HandlerFunc func(call *Call)

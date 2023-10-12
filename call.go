@@ -11,13 +11,14 @@ import (
 	"reflect"
 	"strings"
 
+	"log/slog"
+
 	"github.com/google/uuid"
 	"github.com/pkkummermo/govalin/internal/http/charsets"
 	"github.com/pkkummermo/govalin/internal/http/contenttypes"
 	"github.com/pkkummermo/govalin/internal/http/headers"
 	"github.com/pkkummermo/govalin/internal/validation"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slog"
 )
 
 type raw struct {

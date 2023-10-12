@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 type PathMatcher struct {
