@@ -274,7 +274,7 @@ func (server *App) getOrCreatePathHandlerByPath(path string) *pathHandler {
 	}
 	newHandler, pathHandlerErr := newPathHandlerFromPathFragment(path)
 	if pathHandlerErr != nil {
-		slog.Error(fmt.Sprintf("Failed to create before handler for path '%s'. Err %v", path, pathHandlerErr))
+		slog.Error(fmt.Sprintf("Failed to create handler for path '%s'. Err: %v", path, pathHandlerErr))
 		os.Exit(1)
 	}
 

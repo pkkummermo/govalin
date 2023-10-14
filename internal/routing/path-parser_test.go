@@ -17,6 +17,14 @@ func TestSimplePathMatching(t *testing.T) {
 	assert.Equal(t, false, pathMatcher.MatchesURL("/somethingelse"), "Should not match on partial match")
 }
 
+func TestRootMatching(t *testing.T) {
+	pathMatcher, err := routing.NewPathMatcherFromString("/")
+
+	assert.Nil(t, err)
+	assert.Equal(t, true, pathMatcher.MatchesURL("/"), "Should match on exact match")
+	assert.Equal(t, false, pathMatcher.MatchesURL("/govalin"), "Should not match on partial match")
+}
+
 func TestSimpleWildcardMatch(t *testing.T) {
 	pathMatcher, err := routing.NewPathMatcherFromString("*")
 	assert.Nil(t, err)

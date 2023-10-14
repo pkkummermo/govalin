@@ -1,10 +1,13 @@
 package routing
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
 	"log/slog"
+
+	"github.com/pkkummermo/govalin/internal/util"
 )
 
 type PathMatcher struct {
@@ -16,19 +19,10 @@ type PathMatcher struct {
 }
 
 func NewPathMatcherFromString(path string) (PathMatcher, error) {
-	var pathSegments = []pathSegment{}
+	pathSegments, err := getPathSegments(path)
 
-	for _, pathPiece := range strings.Split(path, "/") {
-		trimmedString := strings.Trim(pathPiece, " ")
-
-		if trimmedString != "" {
-			pathSegment, err := newPathSegment(trimmedString)
-			if err != nil {
-				return PathMatcher{}, err
-			}
-
-			pathSegments = append(pathSegments, pathSegment)
-		}
+	if err != nil {
+		return PathMatcher{}, err
 	}
 
 	var pathParamNames = []string{}
@@ -55,6 +49,41 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 		regexp:         *regexp.MustCompile(fullGroupedRegexpString),
 		matchRegexp:    *regexp.MustCompile(fullRegexpString),
 	}, nil
+}
+
+func getPathSegments(path string) ([]pathSegment, error) {
+	pathSegments := []pathSegment{}
+	pathParts := strings.Split(path, "/")
+
+	// Handle "/" and multiple instances of just "///" without paths
+	if util.All(pathParts, func(part string) bool {
+		return strings.Trim(part, " ") == ""
+	}) {
+		if path != "/" {
+			slog.Warn(fmt.Sprintf("The path '%s' was converted to /", path))
+		}
+		ps, err := newPathSegment("/")
+		if err != nil {
+			return []pathSegment{}, err
+		}
+
+		return []pathSegment{ps}, err
+	}
+
+	for _, pathPiece := range pathParts {
+		trimmedString := strings.Trim(pathPiece, " ")
+
+		if trimmedString != "" {
+			pathSegment, err := newPathSegment(trimmedString)
+			if err != nil {
+				return pathSegments, err
+			}
+
+			pathSegments = append(pathSegments, pathSegment)
+		}
+	}
+
+	return pathSegments, nil
 }
 
 // MatchesURL checks whether given string URL matches the path.
