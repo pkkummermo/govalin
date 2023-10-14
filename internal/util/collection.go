@@ -10,3 +10,12 @@ func ContainsSome[T comparable](collection []T, candidates ...T) bool {
 	}
 	return false
 }
+
+func All[T comparable](slice []T, pred func(T) bool) bool {
+	for _, t := range slice {
+		if !pred(t) {
+			return false
+		}
+	}
+	return true
+}
