@@ -300,6 +300,7 @@ func (server *App) getPathHandlerByPath(path string) (*pathHandler, error) {
 }
 
 func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
+	incomingRequestTime := time.Now()
 	w.Header().Add("Server", "govalin")
 
 	call := newCallFromRequest(
@@ -314,6 +315,9 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		if pathHandler.Before != nil && pathHandler.PathMatcher.MatchesURL(req.URL.Path) {
 			call.pathParams = pathHandler.PathMatcher.PathParams(req.URL.Path)
 			if !pathHandler.Before(&call) {
+				// Due to short circuiting the request, we need to do the
+				// request log here
+				server.logRequestLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
 				return
 			}
 		}
@@ -337,7 +341,23 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	server.logRequestLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+
 	server.notFoundHandler(&call)
+}
+
+func (server *App) logRequestLog(call *Call, durationInMS float64) {
+	slog.Info(
+		"incoming request",
+		slog.String("method", call.Method()),
+		slog.Float64("duration_in_ms", durationInMS),
+		slog.String("path", call.URL().Path),
+		slog.Int("status", call.status),
+		slog.String(
+			"user_agent",
+			call.UserAgent(),
+		),
+	)
 }
 
 func (server *App) notFoundHandler(call *Call) {
