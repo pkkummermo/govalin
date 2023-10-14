@@ -347,9 +347,13 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	server.logRequestLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+	// No status set, meaning no handlers have handled the request properly,
+	// ie 404 / not found
+	if call.Status() == 0 {
+		server.notFoundHandler(&call)
+	}
 
-	server.notFoundHandler(&call)
+	server.logRequestLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
 }
 
 func (server *App) logRequestLog(call *Call, durationInMS float64) {
@@ -367,10 +371,6 @@ func (server *App) logRequestLog(call *Call, durationInMS float64) {
 }
 
 func (server *App) notFoundHandler(call *Call) {
-	if call.Status() != 0 {
-		return
-	}
-
 	call.Status(http.StatusNotFound)
 	call.JSON(validation.NewError(
 		validation.NewErrorResponse(
