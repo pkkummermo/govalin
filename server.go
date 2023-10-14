@@ -36,6 +36,11 @@ func New(config ...ConfigFunc) *App {
 		config[0](initConfig)
 	}
 
+	for _, plugin := range initConfig.server.plugins {
+		slog.Debug(fmt.Sprintf("Plugins: Running OnInit for '%s'", plugin.Name()))
+		plugin.OnInit(initConfig)
+	}
+
 	return &App{
 		config:          initConfig,
 		createdTime:     time.Now(),
@@ -225,6 +230,7 @@ func (server *App) Start(port ...uint16) error {
 
 	// Initialize all plugins
 	for _, plugin := range server.config.server.plugins {
+		slog.Debug(fmt.Sprintf("Plugins: Running Apply for '%s'", plugin.Name()))
 		plugin.Apply(server)
 	}
 
