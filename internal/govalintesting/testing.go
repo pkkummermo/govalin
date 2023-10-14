@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"log/slog"
+
 	"github.com/ddliu/go-httpclient"
 	"github.com/pkkummermo/govalin"
 )
@@ -30,13 +32,13 @@ func (govalinHttp *GovalinHTTP) Head(path string) string {
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Head(url)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to HEAD %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to HEAD %s. %v", url, err))
 		os.Exit(1)
 	}
 
 	data, err := response.ToString()
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed decode HEAD response as string for %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed decode HEAD response as string for %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -47,7 +49,7 @@ func (govalinHttp *GovalinHTTP) HeadResponse(path string) *httpclient.Response {
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Head(url)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to HEAD %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to HEAD %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -58,13 +60,13 @@ func (govalinHttp *GovalinHTTP) Get(path string, params ...any) string {
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Get(url, params...)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to GET %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to GET %s. %v", url, err))
 		os.Exit(1)
 	}
 
 	data, err := response.ToString()
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed decode GET response as string for %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed decode GET response as string for %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -75,7 +77,7 @@ func (govalinHttp *GovalinHTTP) GetResponse(path string, params ...any) *httpcli
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Get(url, params...)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to GET %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to GET %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -86,13 +88,13 @@ func (govalinHttp *GovalinHTTP) Post(path string, postData any) string {
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Post(url, postData)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to POST %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to POST %s. %v", url, err))
 		os.Exit(1)
 	}
 
 	data, err := response.ToString()
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed decode POST response as string for %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed decode POST response as string for %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -103,7 +105,7 @@ func (govalinHttp *GovalinHTTP) PostResponse(path string, postData any) *httpcli
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Post(url, postData)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to POST %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to POST %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -114,13 +116,13 @@ func (govalinHttp *GovalinHTTP) Put(path string, putData io.Reader) string {
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Put(url, putData)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to PUT %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to PUT %s. %v", url, err))
 		os.Exit(1)
 	}
 
 	data, err := response.ToString()
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed decode PUT response as string for %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed decode PUT response as string for %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -131,7 +133,7 @@ func (govalinHttp *GovalinHTTP) PutResponse(path string, putData io.Reader) *htt
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Put(url, putData)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to PUT %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to PUT %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -142,13 +144,13 @@ func (govalinHttp *GovalinHTTP) Patch(path string, patchData map[string]string) 
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Patch(url, patchData)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to PATCH %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to PATCH %s. %v", url, err))
 		os.Exit(1)
 	}
 
 	data, err := response.ToString()
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed decode PATCH response as string for %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed decode PATCH response as string for %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -159,7 +161,7 @@ func (govalinHttp *GovalinHTTP) PatchResponse(path string, patchData map[string]
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Patch(url, patchData)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to PATCH %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to PATCH %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -170,13 +172,13 @@ func (govalinHttp *GovalinHTTP) Options(path string, optionsData ...map[string]s
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Options(url, optionsData...)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to OPTIONS %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to OPTIONS %s. %v", url, err))
 		os.Exit(1)
 	}
 
 	data, err := response.ToString()
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed decode OPTIONS response as string for %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed decode OPTIONS response as string for %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -187,7 +189,7 @@ func (govalinHttp *GovalinHTTP) OptionResponse(path string, optionsData ...map[s
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Options(url, optionsData...)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to OPTIONS %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to OPTIONS %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -198,13 +200,13 @@ func (govalinHttp *GovalinHTTP) Delete(path string, deleteData ...any) string {
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Delete(url, deleteData...)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to DELETE %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to DELETE %s. %v", url, err))
 		os.Exit(1)
 	}
 
 	data, err := response.ToString()
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed decode DELETE response as string for %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed decode DELETE response as string for %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -215,7 +217,7 @@ func (govalinHttp *GovalinHTTP) DeleteResponse(path string, deleteData ...any) *
 	url := govalinHttp.Host + path
 	response, err := govalinHttp.http.Delete(url, deleteData...)
 	if err != nil {
-		log.Error(fmt.Sprintf("HTTP: Failed to GET %s. %v", url, err))
+		slog.Error(fmt.Sprintf("HTTP: Failed to GET %s. %v", url, err))
 		os.Exit(1)
 	}
 
@@ -229,7 +231,7 @@ func (govalinHttp *GovalinHTTP) Raw() *httpclient.HttpClient {
 func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 	port, err := freePort()
 	if err != nil {
-		log.Error(fmt.Sprintf("Could not find free port. %v", err))
+		slog.Error(fmt.Sprintf("Could not find free port. %v", err))
 		os.Exit(1)
 	}
 	testInstance := govalin.New()
@@ -238,7 +240,7 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 	go func() {
 		err = server.Start(port)
 		if err != nil {
-			log.Error(fmt.Sprintf("Failed to start test server. %v", err))
+			slog.Error(fmt.Sprintf("Failed to start test server. %v", err))
 			os.Exit(1)
 		}
 	}()
@@ -249,7 +251,7 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 
 	err = server.Shutdown()
 	if err != nil {
-		log.Error(fmt.Sprintf("Failed to shutdown test server. %v", err))
+		slog.Error(fmt.Sprintf("Failed to shutdown test server. %v", err))
 		os.Exit(1)
 	}
 }
