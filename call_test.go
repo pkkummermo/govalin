@@ -1,11 +1,14 @@
 package govalin_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/ddliu/go-httpclient"
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/internal/govalintesting"
+	"github.com/pkkummermo/govalin/internal/http/headers"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -198,5 +201,61 @@ func TestRequestID(t *testing.T) {
 			"govalin",
 			"Should reuse given ID",
 		)
+	})
+}
+
+func TestRedirect(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/govalin", func(call *govalin.Call) {
+			call.Redirect("http://" + call.Host() + "/govalin2")
+		})
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		response, err := http.
+			Raw().
+			Begin().
+			WithOption(httpclient.OPT_FOLLOWLOCATION, false).
+			Get(http.Host + "/govalin")
+
+		assert.Equal(t, true, httpclient.IsRedirectError(err), fmt.Sprintf("Request was not redirect. Error: %s", err))
+		assert.Equal(t, 302, response.StatusCode, "Should redirect with 302")
+		assert.Equal(t, http.Host+"/govalin2", response.Header.Get(headers.Location))
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/govalin", func(call *govalin.Call) {
+			call.Redirect("http://"+call.Host()+"/govalin2", true)
+		})
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		response, err := http.
+			Raw().
+			Begin().
+			WithOption(httpclient.OPT_FOLLOWLOCATION, false).
+			Get(http.Host + "/govalin")
+
+		assert.Equal(t, true, httpclient.IsRedirectError(err), fmt.Sprintf("Request was not redirect. Error: %s", err))
+		assert.Equal(t, 301, response.StatusCode, "Should redirect with 301")
+		assert.Equal(t, http.Host+"/govalin2", response.Header.Get(headers.Location))
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/govalin", func(call *govalin.Call) {
+			call.Redirect("http://" + call.Host() + "/govalin2")
+		})
+		app.Get("/govalin2", func(call *govalin.Call) {
+			call.Text("govalin2")
+		})
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		response, err := http.
+			Raw().
+			Begin().
+			Get(http.Host + "/govalin")
+		body, _ := response.ToString()
+
+		assert.NoError(t, err, fmt.Sprintf("Request errored. Error: %s", err))
+		assert.Equal(t, 200, response.StatusCode)
+		assert.Equal(t, "govalin2", body)
 	})
 }

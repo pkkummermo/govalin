@@ -432,6 +432,20 @@ func (call *Call) JSON(obj interface{}) {
 	}
 }
 
+// Redirect redirects the request to the given URL
+//
+// Redirect will set the status code to 302 or 301 (if permenant) and
+// set the location header to the given URL.
+func (call *Call) Redirect(url string, permanent ...bool) {
+	if len(permanent) > 0 && permanent[0] {
+		call.Status(http.StatusMovedPermanently)
+	} else {
+		call.Status(http.StatusFound)
+	}
+	call.Header(headers.Location, url)
+	call.sendStatusOrDefault()
+}
+
 // Get body as given struct
 //
 // BodyAs takes a pointer as input and tries to deserialize the body into the object
