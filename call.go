@@ -387,7 +387,7 @@ func (call *Call) Status(statusCode ...int) int {
 // Text will set the content-type of the response as text/plain and write it to the response.
 // If no other status has been given the response, it will write a 200 OK to the response.
 func (call *Call) Text(text string) {
-	call.w.Header().Add(headers.ContentType, contenttypes.TextPlain+"; charset="+call.charset)
+	call.w.Header().Add(headers.ContentType, headers.ContentTypeHeader(contenttypes.TextPlain, call.charset))
 	call.sendStatusOrDefault()
 
 	_, err := call.w.Write([]byte(text))
@@ -401,7 +401,7 @@ func (call *Call) Text(text string) {
 // HTML will set the content-type of the response as text/html and write it to the response.
 // If no other status has been given the response, it will write a 200 OK to the response.
 func (call *Call) HTML(text string) {
-	call.w.Header().Add(headers.ContentType, contenttypes.TextHTML+"; charset="+call.charset)
+	call.w.Header().Add(headers.ContentType, headers.ContentTypeHeader(contenttypes.TextHTML, call.charset))
 	call.sendStatusOrDefault()
 
 	_, err := call.w.Write([]byte(text))
@@ -416,7 +416,7 @@ func (call *Call) HTML(text string) {
 // object as JSON, and writes it to the response. If no other status has been given the response,
 // it will write a 200 OK to the response.
 func (call *Call) JSON(obj interface{}) {
-	call.w.Header().Add(headers.ContentType, contenttypes.ApplicationJSON+"; charset="+charsets.UTF8)
+	call.w.Header().Add(headers.ContentType, headers.ContentTypeHeader(contenttypes.ApplicationJSON, charsets.UTF8))
 	jsonBytes, err := json.Marshal(obj)
 
 	if err != nil {

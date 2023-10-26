@@ -76,3 +76,8 @@ const (
 	XHttpMethodOverride           = "X-HTTP-Method-Override"
 	XPermittedCrossDomainPolicies = "X-Permitted-Cross-Domain-Policies"
 )
+
+// ContentTypeHeader generates a Content-Type header value based on given content type and charset.
+func ContentTypeHeader(contentType string, charset string) string {
+	return contentType + "; charset=" + charset
+}
