@@ -359,6 +359,7 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 func (server *App) logRequestLog(call *Call, durationInMS float64) {
 	slog.Info(
 		"incoming request",
+		slog.String("id", call.ID()),
 		slog.String("method", call.Method()),
 		slog.Float64("duration_in_ms", durationInMS),
 		slog.String("path", call.URL().Path),
