@@ -1,9 +1,11 @@
 package cors
 
 import (
-	"log"
 	"net/http"
+	"os"
 	"strings"
+
+	"log/slog"
 
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/internal/http/headers"
@@ -64,14 +66,16 @@ func (config *Config) Enable(conf EnableConfig) *Config {
 
 func (config *Config) checkConfiguration() {
 	if config.allowCredentials && util.ContainsSome(config.allowedOrigins, wildcard) {
-		log.Fatal("CORS plugin has been configured to allow credentials while having " +
+		slog.Error("CORS plugin has been configured to allow credentials while having " +
 			"a wildcard in allowed origins. This is not a secure way of exposing " +
 			"CORS headers. For more details search for 'CORS attacks'.")
+		os.Exit(1)
 	}
 
 	if util.ContainsSome(config.allowedOrigins, nullOrigin) {
-		log.Fatal("You should never allow the null origin in your CORS config. For more details see " +
+		slog.Error("You should never allow the null origin in your CORS config. For more details see " +
 			"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin#directives")
+		os.Exit(1)
 	}
 }
 
