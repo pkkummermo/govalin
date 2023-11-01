@@ -64,7 +64,6 @@ func (config *Config) ServerMaxReadTimeout(timeout int64) *Config {
 
 // EnableSessions configures govalin to use sessions for all requests.
 func (config *Config) EnableSessions(confFunc ...SessionConfigFunc) *Config {
-
 	configuredSession := SessionConfiguration{
 		sessionExpireTime: defaultSessionExpireTime,
 		sessionStore:      session.NewInMemoryStore(),
