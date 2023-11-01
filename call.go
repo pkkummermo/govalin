@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+	"time"
 
 	"log/slog"
 
@@ -17,9 +18,12 @@ import (
 	"github.com/pkkummermo/govalin/internal/http/charsets"
 	"github.com/pkkummermo/govalin/internal/http/contenttypes"
 	"github.com/pkkummermo/govalin/internal/http/headers"
+	"github.com/pkkummermo/govalin/internal/session"
 	"github.com/pkkummermo/govalin/internal/validation"
 	"golang.org/x/exp/maps"
 )
+
+const sessionCookieName = "govalin-session"
 
 type raw struct {
 	W   *http.ResponseWriter
@@ -42,6 +46,7 @@ type Call struct {
 	pathParams    map[string]string
 	bodyBytes     []byte
 	charset       string
+	session       session.Session
 	Raw           raw // Raw contains the raw request and response
 }
 
@@ -69,7 +74,71 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 		},
 	}
 
+	if config.server.sessionsEnabled {
+		initiateSessionFromCall(&call)
+	}
+
 	return call
+}
+
+// initiateSessionFromCall tries to get the session from the request. If the session
+// doesn't exist, it will create a new session and set the session cookie on the response.
+func initiateSessionFromCall(call *Call) {
+	sessionCookie, getSessionErr := call.Cookie(sessionCookieName)
+
+	// Create the session if it doesn't exist
+	if errors.Is(http.ErrNoCookie, getSessionErr) {
+		then := time.Now()
+		addNewSessionErr := addNewSessionToCall(call)
+		slog.Debug(fmt.Sprintf("Adding new session took %v", time.Since(then)))
+		if addNewSessionErr != nil {
+			slog.Error("Failed to add new session to call", addNewSessionErr)
+		}
+		return
+	}
+
+	session, getSessionErr := call.config.server.sessionStore.GetSession(sessionCookie.Value, 0)
+	// The session might be expired, so we need to create a new one
+	if getSessionErr != nil {
+		slog.Debug("Failed to get session from session store, adding new session", getSessionErr)
+		addNewSessionErr := addNewSessionToCall(call)
+		if addNewSessionErr != nil {
+			slog.Error("Failed to add new session to call", addNewSessionErr)
+		}
+		return
+	}
+
+	call.session = session
+}
+
+func addNewSessionToCall(call *Call) error {
+	sessionID, createSessionErr := call.config.server.sessionStore.
+		CreateSession(time.Now().Add(call.config.server.sessionExpireTime).UnixNano())
+
+	if createSessionErr != nil {
+		slog.Error("Failed to create session", createSessionErr)
+		return createSessionErr
+	}
+
+	session, getNewSessionErr := call.config.server.sessionStore.
+		GetSession(sessionID, 0)
+	if getNewSessionErr != nil {
+		slog.Error("Failed to get session from session store", getNewSessionErr)
+		return getNewSessionErr
+	}
+
+	_, cookieErr := call.Cookie(sessionCookieName, &http.Cookie{
+		Value:    sessionID,
+		Expires:  time.Now().Add(call.config.server.sessionExpireTime),
+		HttpOnly: true,
+	})
+	if cookieErr != nil {
+		slog.Error("Failed to set session cookie", cookieErr)
+		return cookieErr
+	}
+
+	call.session = session
+	return nil
 }
 
 // readBody reads the body as bytes and caches the value on call.
@@ -468,6 +537,37 @@ func (call *Call) BodyAs(obj any) error {
 	}
 
 	return nil
+}
+
+func (call *Call) SessionAttr(key string, value ...any) (any, error) {
+	if !call.config.server.sessionsEnabled {
+		slog.Warn("Tried to access session attributes when sessions were not enabled")
+		return nil, errors.New("session handling is not enabled")
+	}
+
+	if len(value) > 0 {
+		call.session.Data[key] = value[0]
+		return value[0], call.config.server.sessionStore.SetSessionData(call.session.ID, call.session.Data)
+	}
+
+	if call.session.Data[key] == nil {
+		return nil, errors.New("session attribute not found")
+	}
+
+	return call.session.Data[key], nil
+}
+
+func (call *Call) SessionAttrOrDefault(key string, def any) any {
+	if !call.config.server.sessionsEnabled {
+		slog.Warn("Tried to access session attributes when sessions were not enabled")
+		return def
+	}
+
+	if call.session.Data[key] == nil {
+		return def
+	}
+
+	return call.session.Data[key]
 }
 
 // Handle an error

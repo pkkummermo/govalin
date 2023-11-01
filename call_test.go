@@ -170,6 +170,97 @@ func TestCookies(t *testing.T) {
 	})
 }
 
+func TestSession(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		return govalin.New(func(config *govalin.Config) {
+			config.EnableSessions()
+		}).Get("/govalin", func(call *govalin.Call) {
+			call.Text("govalin")
+		})
+	}, func(http govalintesting.GovalinHTTP) {
+		response := http.GetResponse("/govalin")
+		setCookieHeader := response.Header.Get("Set-Cookie")
+
+		assert.NotEmpty(
+			t,
+			setCookieHeader,
+			"Should set session cookie if no session is set",
+		)
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		return govalin.New(func(config *govalin.Config) {
+			config.EnableSessions()
+		}).Get("/govalin", func(call *govalin.Call) {
+			call.Text("govalin")
+		})
+	}, func(govalinHttp govalintesting.GovalinHTTP) {
+		response, err := govalinHttp.Raw().Begin().WithCookie(&http.Cookie{
+			Name:  "govalin-session",
+			Value: "non-existent",
+		}).Get(govalinHttp.Host + "/govalin")
+
+		setCookieHeader := response.Header.Get("Set-Cookie")
+
+		assert.NoError(t, err, "Request errored")
+		assert.NotEmpty(
+			t,
+			setCookieHeader,
+			"Should set session cookie if a session is not found",
+		)
+	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		return govalin.New(func(config *govalin.Config) {
+			config.EnableSessions()
+		}).
+			Get("/get", func(call *govalin.Call) {
+				call.Text(call.SessionAttrOrDefault("test", "notGovalin").(string))
+			}).
+			Get("/set", func(call *govalin.Call) {
+				_, err := call.SessionAttr("test", "govalin")
+
+				if err != nil {
+					call.Error(err)
+					return
+				}
+
+				call.Status(200)
+			})
+	}, func(govalinHttp govalintesting.GovalinHTTP) {
+		response := govalinHttp.GetResponse("/get")
+		body, _ := response.ToString()
+		setCookies := response.Cookies()
+
+		assert.Equal(t, 1, len(setCookies), "Should set one cookie")
+		assert.Equal(t, 200, response.StatusCode, "Should set status to 200")
+		assert.Equal(t, "notGovalin", body, "Should retrieve default value if no session attr is set")
+
+		response = govalinHttp.GetResponse("/set")
+		setCookies = response.Cookies()
+
+		assert.Equal(t, 0, len(setCookies), "Should not set cookies when already received one")
+		assert.Equal(t, 200, response.StatusCode, "Should set status to 200")
+
+		response = govalinHttp.GetResponse("/get")
+		body, _ = response.ToString()
+
+		assert.Equal(t, 200, response.StatusCode, "Should set status to 200")
+		assert.Equal(t, "govalin", body, "Should retrieve session attr")
+
+		response, err := govalinHttp.Raw().Begin().WithCookie(&http.Cookie{
+			Name:  "govalin-session",
+			Value: "invalid-session",
+		}).Get(govalinHttp.Host + "/get")
+
+		body, _ = response.ToString()
+
+		assert.NoError(t, err, "Request errored")
+		assert.Equal(t, 200, response.StatusCode, "Should set status to 200")
+		assert.Equal(t, "notGovalin", body, "Should retrieve default value if session attr is not found")
+	})
+}
+
 func TestRequestID(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Get("/govalin", func(call *govalin.Call) {
