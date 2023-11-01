@@ -12,6 +12,9 @@ type StoreImplementation struct {
 	StoreFunc func() Store
 }
 
+// TestStoreImplementation tests a session store implementation.
+//
+//nolint:funlen
 func TestStoreImplementation(t *testing.T, impl StoreImplementation) {
 	t.Run(impl.Name, func(t *testing.T) {
 		t.Run("CreatingSessions", func(t *testing.T) {
@@ -38,6 +41,8 @@ func TestStoreImplementation(t *testing.T, impl StoreImplementation) {
 		})
 
 		t.Run("CreatingMultipleSessionsAndListing", func(t *testing.T) {
+			numOfSessionToCreate := 100
+
 			store := impl.StoreFunc()
 			for i := 0; i < 100; i++ {
 				_, err := store.CreateSession(time.Now().Add(1 * time.Hour).UnixNano())
@@ -46,7 +51,7 @@ func TestStoreImplementation(t *testing.T, impl StoreImplementation) {
 
 			sessions, err := store.GetSessions(0)
 			assert.NoError(t, err)
-			assert.Equal(t, 100, len(sessions))
+			assert.Equal(t, numOfSessionToCreate, len(sessions))
 		})
 
 		t.Run("Removing session", func(t *testing.T) {
@@ -127,5 +132,4 @@ func TestStoreImplementation(t *testing.T, impl StoreImplementation) {
 			assert.Equal(t, Data{}, sess.Data)
 		})
 	})
-
 }
