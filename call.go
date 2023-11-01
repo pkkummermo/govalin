@@ -206,6 +206,7 @@ func (call *Call) Cookie(name string, cookies ...*http.Cookie) (*http.Cookie, er
 	if len(cookies) > 0 {
 		cookies[0].Name = name
 		http.SetCookie(call.w, cookies[0])
+		return cookies[0], nil
 	}
 
 	return call.req.Cookie(name)
