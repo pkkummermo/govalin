@@ -18,10 +18,6 @@ const startupInMS = 1
 type TestFunc func(app *govalin.App) *govalin.App
 type ExecFunc func(http GovalinHTTP)
 
-var httpClient *httpclient.HttpClient = httpclient.Defaults(httpclient.Map{
-	httpclient.OPT_USERAGENT: "govalin-testing",
-})
-
 // GovalinHTTP is a simple wrapper with utility methods to simplify testing.
 type GovalinHTTP struct {
 	http httpclient.HttpClient
@@ -247,7 +243,11 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 
 	time.Sleep(time.Millisecond * startupInMS)
 
-	testFunc(GovalinHTTP{http: *httpClient, Host: fmt.Sprintf("http://localhost:%d", port)})
+	testFunc(GovalinHTTP{http: *httpclient.Defaults(
+		httpclient.Map{
+			httpclient.OPT_USERAGENT: "govalin-testing",
+		},
+	), Host: fmt.Sprintf("http://localhost:%d", port)})
 
 	err = server.Shutdown()
 	if err != nil {
