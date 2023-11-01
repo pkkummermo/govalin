@@ -1,10 +1,17 @@
 package govalin
 
+import (
+	"time"
+
+	"github.com/pkkummermo/govalin/internal/session"
+)
+
 const (
-	defaultPort                      = 6060 // govalin default port.
-	defaultMaxReadTimeout            = 10   // maximum read timeout for requests.
-	defaultMaxBodyReadSize     int64 = 4096 //  Default max body read size.
-	defaultShutdownTimeoutInMS       = 200  // Max time for shutdown.
+	defaultPort                      = 6060               // govalin default port.
+	defaultMaxReadTimeout            = 10                 // maximum read timeout for requests.
+	defaultMaxBodyReadSize     int64 = 4096               //  Default max body read size.
+	defaultShutdownTimeoutInMS       = 200                // Max time for shutdown.
+	defaultSessionExpireTime         = 3600 * time.Second // Default session expire time.
 )
 
 // ConfigFunc gives a config function that will generate a Config
@@ -17,6 +24,9 @@ type serverConfig struct {
 	maxBodyReadSize     int64
 	shutdownTimeoutInMS int64
 	plugins             []Plugin
+	sessionsEnabled     bool
+	sessionStore        session.Store
+	sessionExpireTime   time.Duration
 }
 
 // Config contains configuration for a Govalin instance.
@@ -52,6 +62,25 @@ func (config *Config) ServerMaxReadTimeout(timeout int64) *Config {
 	return config
 }
 
+// EnableSessions configures govalin to use sessions for all requests.
+func (config *Config) EnableSessions(confFunc ...SessionConfigFunc) *Config {
+
+	configuredSession := SessionConfiguration{
+		sessionExpireTime: defaultSessionExpireTime,
+		sessionStore:      session.NewInMemoryStore(),
+	}
+
+	if (len(confFunc)) > 0 {
+		confFunc[0](&configuredSession)
+	}
+
+	config.server.sessionsEnabled = true
+	config.server.sessionExpireTime = configuredSession.sessionExpireTime
+	config.server.sessionStore = configuredSession.sessionStore
+
+	return config
+}
+
 // ServerShutdownTimeout sets the max timeout for before forcefully shutting the server down.
 func (config *Config) ServerShutdownTimeout(timeout int64) *Config {
 	config.server.shutdownTimeoutInMS = timeout
@@ -65,6 +94,26 @@ func newConfig() *Config {
 			maxReadTimeout:      defaultMaxReadTimeout,
 			maxBodyReadSize:     defaultMaxBodyReadSize,
 			shutdownTimeoutInMS: defaultShutdownTimeoutInMS,
+			sessionsEnabled:     false,
 		},
 	}
 }
+
+type SessionConfiguration struct {
+	sessionExpireTime time.Duration
+	sessionStore      session.Store
+}
+
+// SessionExpireTime sets the expire time for sessions.
+func (config *SessionConfiguration) SessionExpireTime(expireTime time.Duration) *SessionConfiguration {
+	config.sessionExpireTime = expireTime
+	return config
+}
+
+// SessionStore sets the session store to use.
+func (config *SessionConfiguration) SessionStore(store session.Store) *SessionConfiguration {
+	config.sessionStore = store
+	return config
+}
+
+type SessionConfigFunc func(sessionConfig *SessionConfiguration)
