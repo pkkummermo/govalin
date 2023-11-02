@@ -88,9 +88,7 @@ func initiateSessionFromCall(call *Call) {
 
 	// Create the session if it doesn't exist
 	if errors.Is(http.ErrNoCookie, getSessionErr) {
-		then := time.Now()
 		addNewSessionErr := addNewSessionToCall(call)
-		slog.Debug(fmt.Sprintf("Adding new session took %v", time.Since(then)))
 		if addNewSessionErr != nil {
 			slog.Error("Failed to add new session to call", addNewSessionErr)
 		}
