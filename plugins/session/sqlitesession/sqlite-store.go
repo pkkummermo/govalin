@@ -19,7 +19,7 @@ type sqliteSessionStore struct {
 
 const sqliteDriver = "sqlite3"
 
-func NewSqliteSessionStore(connectionString string, useWAL bool) (*sqliteSessionStore, error) {
+func NewSqliteSessionStore(connectionString string, useWAL bool) (session.Store, error) {
 	var err error
 
 	ret := sqliteSessionStore{
