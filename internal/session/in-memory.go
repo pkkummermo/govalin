@@ -56,7 +56,7 @@ func (s *inMemoryStore) sessionPrune() error {
 
 // CreateSession creates a new session with the given expiration time and returns its ID.
 func (s *inMemoryStore) CreateSession(expires int64) (string, error) {
-	sessionID, err := createNewSessionID(s)
+	sessionID, err := CreateNewSessionID(s)
 
 	if err != nil {
 		return "", err
