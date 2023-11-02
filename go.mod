@@ -6,6 +6,7 @@ toolchain go1.21.2
 
 require (
 	github.com/ddliu/go-httpclient v0.7.1
+	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/microcosm-cc/bluemonday v1.0.26
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d

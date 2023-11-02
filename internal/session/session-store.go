@@ -61,9 +61,9 @@ type Store interface {
 	RemoveSessionData(sessionID string) error
 }
 
-// createNewSessionID generates a random session id. Also
+// CreateNewSessionID generates a random session id. Also
 // check for collisions so we don't accidentally assign an existing session id.
-func createNewSessionID(s Store) (string, error) {
+func CreateNewSessionID(s Store) (string, error) {
 	numCollisionsBeforeWeGiveUp := 5
 	for i := 0; i < numCollisionsBeforeWeGiveUp; i++ {
 		randSize := 64
