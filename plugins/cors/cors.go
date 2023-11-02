@@ -13,9 +13,6 @@ import (
 )
 
 type Config struct {
-	enabled bool
-	// defaultScheme string
-
 	allowedOrigins   []string
 	allowedHeaders   []string
 	allowedMethods   []string
@@ -29,7 +26,6 @@ const (
 
 func New() *Config {
 	return &Config{
-		enabled:        false,
 		allowedOrigins: []string{},
 		allowedMethods: []string{
 			"GET", "POST", "PUT", "DELETE", "OPTIONS",
@@ -43,7 +39,9 @@ func (config *Config) Name() string {
 	return "CORS plugin"
 }
 
-func (config *Config) OnInit(_ *govalin.Config) {}
+func (config *Config) OnInit(_ *govalin.Config) {
+	config.checkConfiguration()
+}
 
 func (config *Config) Apply(app *govalin.App) {
 	app.Before("*", config.handleCors)
@@ -52,16 +50,6 @@ func (config *Config) Apply(app *govalin.App) {
 			call.Status(http.StatusOK)
 		}
 	})
-}
-
-// Enable will configure the server to handle OPTIONS preflight requests
-// according to your CORS configuration.
-func (config *Config) Enable(conf EnableConfig) *Config {
-	conf(newConfigFunc(config))
-	config.enabled = true
-	config.checkConfiguration()
-
-	return config
 }
 
 func (config *Config) checkConfiguration() {
@@ -82,7 +70,7 @@ func (config *Config) checkConfiguration() {
 func (config *Config) handleCors(call *govalin.Call) bool {
 	origin := call.Header(headers.Origin)
 
-	if !config.enabled || !util.ContainsSome(config.allowedOrigins, wildcard, origin) {
+	if !util.ContainsSome(config.allowedOrigins, wildcard, origin) {
 		return true
 	}
 
@@ -108,47 +96,41 @@ func (config *Config) handleCors(call *govalin.Call) bool {
 	return true
 }
 
-func newConfigFunc(config *Config) *ConfigFunc {
-	return &ConfigFunc{
-		config: config,
-	}
-}
-
-type ConfigFunc struct {
-	config *Config
-}
-
-type EnableConfig func(config *ConfigFunc)
-
 // AllowAllOrigins will explicitly set allowed origins to "*", allowing all origins.
 //
 // For more details see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
-func (corsF *ConfigFunc) AllowAllOrigins() *ConfigFunc {
-	corsF.config.allowedOrigins = []string{"*"}
-	return corsF
+func (config *Config) AllowAllOrigins() *Config {
+	config.allowedOrigins = []string{"*"}
+	return config
 }
 
 // AllowOrigins sets the allowed origins for cross origin requests
 //
 // For more details see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
-func (corsF *ConfigFunc) AllowOrigins(origins ...string) *ConfigFunc {
-	corsF.config.allowedOrigins = origins
-	return corsF
+func (config *Config) AllowOrigins(origins ...string) *Config {
+	config.allowedOrigins = origins
+	return config
 }
 
 // AllowCredentials will allow for the user to send credentials using cross origin requests
 //
 // For more details see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials
-func (corsF *ConfigFunc) AllowCredentials() *ConfigFunc {
-	corsF.config.allowCredentials = true
-	return corsF
+func (config *Config) AllowCredentials(allow bool) *Config {
+	config.allowCredentials = allow
+	return config
 }
 
 // AllowHeaders sets the allowed headers for CORS in addition to the safelisted headers
 // found in https://developer.mozilla.org/en-US/docs/Glossary/CORS-safelisted_request_header. Defaults to "*"
 //
 // For more details see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Headers
-func (corsF *ConfigFunc) AllowHeaders(headers ...string) *ConfigFunc {
-	corsF.config.allowedHeaders = headers
-	return corsF
+func (config *Config) AllowHeaders(headers ...string) *Config {
+	config.allowedHeaders = headers
+	return config
+}
+
+// AllowMethods sets the allowed methods for CORS. Defaults to GET, POST, PUT, DELETE, OPTIONS.
+func (config *Config) AllowMethods(methods ...string) *Config {
+	config.allowedMethods = methods
+	return config
 }

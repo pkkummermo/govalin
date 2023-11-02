@@ -13,9 +13,7 @@ import (
 func TestSimpleAllowAllCorsOrigins(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
-			config.Plugin(cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.AllowAllOrigins()
-			}))
+			config.Plugin(cors.New().AllowAllOrigins())
 		}).Get("/govalin", func(call *govalin.Call) { call.Text("govalin") })
 	}, func(http govalintesting.GovalinHTTP) {
 		response, _ := http.Raw().Begin().WithHeader(
@@ -31,9 +29,7 @@ func TestSimpleAllowAllCorsOrigins(t *testing.T) {
 func TestSimpleAllowSingleOrigin(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
-			config.Plugin(cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.AllowOrigins("http://govalin.io")
-			}))
+			config.Plugin(cors.New().AllowOrigins("http://govalin.io"))
 		}).Get("/govalin", func(call *govalin.Call) { call.Text("govalin") })
 	}, func(http govalintesting.GovalinHTTP) {
 		response, _ := http.Raw().Begin().WithHeader(
@@ -55,9 +51,7 @@ func TestSimpleAllowSingleOrigin(t *testing.T) {
 func TestAllowCredentials(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
-			config.Plugin(cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.AllowOrigins("http://govalin.io").AllowCredentials()
-			}))
+			config.Plugin(cors.New().AllowOrigins("http://govalin.io").AllowCredentials(true))
 		}).Get("/govalin", func(call *govalin.Call) { call.Text("govalin") })
 	}, func(http govalintesting.GovalinHTTP) {
 		response, _ := http.Raw().Begin().WithHeader(
@@ -73,9 +67,7 @@ func TestAllowCredentials(t *testing.T) {
 func TestAllowCredentialsNotPresentUnlessConfigured(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
-			config.Plugin(cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.AllowOrigins("http://govalin.io")
-			}))
+			config.Plugin(cors.New().AllowOrigins("http://govalin.io"))
 		}).Get("/govalin", func(call *govalin.Call) { call.Text("govalin") })
 	}, func(http govalintesting.GovalinHTTP) {
 		response, _ := http.Raw().Begin().WithHeader(
@@ -91,10 +83,7 @@ func TestAllowCredentialsNotPresentUnlessConfigured(t *testing.T) {
 func TestAllowHeaders(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
-			config.Plugin(cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.AllowAllOrigins()
-				config.AllowHeaders("my-special-header")
-			}))
+			config.Plugin(cors.New().AllowAllOrigins().AllowHeaders("my-special-header"))
 		}).Get("/govalin", func(call *govalin.Call) { call.Text("govalin") })
 	}, func(http govalintesting.GovalinHTTP) {
 		response, _ := http.Raw().Begin().WithHeader(
@@ -111,9 +100,7 @@ func TestAllowHeaders(t *testing.T) {
 func TestShouldHaveDefaultsEnabledForSimpleConfiguration(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
-			config.Plugin(cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.AllowAllOrigins()
-			}))
+			config.Plugin(cors.New().AllowAllOrigins())
 		}).Get("/govalin", func(call *govalin.Call) { call.Text("govalin") })
 	}, func(http govalintesting.GovalinHTTP) {
 		response, _ := http.Raw().Begin().WithHeader(
@@ -130,9 +117,7 @@ func TestShouldHaveDefaultsEnabledForSimpleConfiguration(t *testing.T) {
 func TestNotFoundHandlerStillTriggers(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
-			config.Plugin(cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.AllowAllOrigins()
-			}))
+			config.Plugin(cors.New().AllowAllOrigins())
 		}).Get("/govalin", func(call *govalin.Call) { call.Text("govalin") })
 	}, func(http govalintesting.GovalinHTTP) {
 		response, _ := http.Raw().Get(http.Host + "/nonexisting")
@@ -141,39 +126,47 @@ func TestNotFoundHandlerStillTriggers(t *testing.T) {
 }
 
 func TestShouldExitOnAddNullOrigin(t *testing.T) {
-	exitCode := govalintesting.TestExit(
+	exitCode, output := govalintesting.TestExit(
 		t,
 		func() {
-			cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.AllowOrigins("null")
+			govalin.New(func(config *govalin.Config) {
+				config.Plugin(
+					cors.New().AllowOrigins("null"),
+				)
 			})
 		},
 	)
 
+	assert.Contains(t, output, "You should never allow the null origin in your CORS config")
 	assert.Equal(t, 1, exitCode)
 }
 
 func TestShouldExitOnAllowCredentialsAndWildcard(t *testing.T) {
-	exitCode := govalintesting.TestExit(
+	exitCode, output := govalintesting.TestExit(
 		t,
 		func() {
-			cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.
-					AllowAllOrigins().
-					AllowCredentials()
+			govalin.New(func(config *govalin.Config) {
+				config.Plugin(
+					cors.New().
+						AllowOrigins("*").
+						AllowCredentials(true),
+				)
 			})
 		},
 	)
 
+	assert.Contains(t, output, "CORS plugin has been configured to allow credentials while having a wildcard in allowed origins") //nolint:lll // test
 	assert.Equal(t, 1, exitCode)
 }
 
 func TestShouldNotExitOnCorrectConfig(t *testing.T) {
-	exitCode := govalintesting.TestExit(
+	exitCode, _ := govalintesting.TestExit(
 		t,
 		func() {
-			cors.New().Enable(func(config *cors.ConfigFunc) {
-				config.AllowAllOrigins()
+			govalin.New(func(config *govalin.Config) {
+				config.Plugin(
+					cors.New().AllowAllOrigins(),
+				)
 			})
 		},
 	)
