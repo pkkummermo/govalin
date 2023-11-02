@@ -34,8 +34,10 @@ func NewSqliteSessionStore(connectionString string, useWAL bool) (*sqliteSession
 		return &ret, pingErr
 	}
 
-	if _, pragmaErr := ret.db.Exec("PRAGMA journal_mode=WAL;"); pragmaErr != nil {
-		return &ret, pragmaErr
+	if useWAL {
+		if _, pragmaErr := ret.db.Exec("PRAGMA journal_mode=WAL;"); pragmaErr != nil {
+			return &ret, pragmaErr
+		}
 	}
 
 	if createSchemaErr := ret.createSchema(); createSchemaErr != nil {
