@@ -23,6 +23,7 @@ type serverConfig struct {
 	maxReadTimeout      int64
 	maxBodyReadSize     int64
 	shutdownTimeoutInMS int64
+	accessLogEnabled    bool
 	plugins             []Plugin
 	sessionsEnabled     bool
 	sessionStore        session.Store
@@ -86,6 +87,12 @@ func (config *Config) ServerShutdownTimeout(timeout int64) *Config {
 	return config
 }
 
+// EnableAccessLog enables access logging for the server. Default is enabled.
+func (config *Config) EnableAccessLog(enabled bool) *Config {
+	config.server.accessLogEnabled = enabled
+	return config
+}
+
 func newConfig() *Config {
 	return &Config{
 		server: serverConfig{
@@ -94,6 +101,7 @@ func newConfig() *Config {
 			maxBodyReadSize:     defaultMaxBodyReadSize,
 			shutdownTimeoutInMS: defaultShutdownTimeoutInMS,
 			sessionsEnabled:     false,
+			accessLogEnabled:    true,
 		},
 	}
 }
