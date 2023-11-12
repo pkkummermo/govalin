@@ -323,7 +323,9 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 			if !pathHandler.Before(&call) {
 				// Due to short circuiting the request, we need to do the
 				// request log here
-				server.logRequestLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+				if server.config.server.accessLogEnabled {
+					server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+				}
 				return
 			}
 		}
@@ -353,10 +355,12 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		server.notFoundHandler(&call)
 	}
 
-	server.logRequestLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+	if server.config.server.accessLogEnabled {
+		server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+	}
 }
 
-func (server *App) logRequestLog(call *Call, durationInMS float64) {
+func (server *App) logAccessLog(call *Call, durationInMS float64) {
 	slog.Info(
 		"incoming request",
 		slog.String("id", call.ID()),
