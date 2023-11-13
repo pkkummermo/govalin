@@ -305,6 +305,41 @@ func (server *App) getPathHandlerByPath(path string) (*pathHandler, error) {
 	)
 }
 
+func (server *App) matchBeforeHandlers(call *Call) bool {
+	for _, pathHandler := range server.pathHandlers {
+		if pathHandler.Before != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
+			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
+
+			// Return false means short circuit, return false
+			if !pathHandler.Before(call) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func (server *App) matchHandlers(call *Call) {
+	for _, pathHandler := range server.pathHandlers {
+		if pathHandler.GetHandlerByMethod(call.Method()) != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
+			var handler = pathHandler.GetHandlerByMethod(call.Method())
+			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
+			handler(call)
+			break
+		}
+	}
+}
+
+func (server *App) matchAfterHandlers(call *Call) {
+	for _, pathHandler := range server.pathHandlers {
+		if pathHandler.After != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
+			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
+			pathHandler.After(call)
+		}
+	}
+}
+
 func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	incomingRequestTime := time.Now()
 	w.Header().Add("Server", "govalin")
@@ -317,37 +352,17 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	)
 
 	// Look for before handlers
-	for _, pathHandler := range server.pathHandlers {
-		if pathHandler.Before != nil && pathHandler.PathMatcher.MatchesURL(req.URL.Path) {
-			call.pathParams = pathHandler.PathMatcher.PathParams(req.URL.Path)
-			if !pathHandler.Before(&call) {
-				// Due to short circuiting the request, we need to do the
-				// request log here
-				if server.config.server.accessLogEnabled {
-					server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
-				}
-				return
-			}
-		}
+	if !server.matchBeforeHandlers(&call) {
+		// Before handler returned false, meaning short circuit, meaning we need to log access log here
+		server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+		return
 	}
 
 	// Look for endpoint handler
-	for _, pathHandler := range server.pathHandlers {
-		if pathHandler.GetHandlerByMethod(req.Method) != nil && pathHandler.PathMatcher.MatchesURL(req.URL.Path) {
-			var handler = pathHandler.GetHandlerByMethod(req.Method)
-			call.pathParams = pathHandler.PathMatcher.PathParams(req.URL.Path)
-			handler(&call)
-			break
-		}
-	}
+	server.matchHandlers(&call)
 
 	// Look for After handlers
-	for _, pathHandler := range server.pathHandlers {
-		if pathHandler.After != nil && pathHandler.PathMatcher.MatchesURL(req.URL.Path) {
-			call.pathParams = pathHandler.PathMatcher.PathParams(req.URL.Path)
-			pathHandler.After(&call)
-		}
-	}
+	server.matchAfterHandlers(&call)
 
 	// No status set, meaning no handlers have handled the request properly,
 	// ie 404 / not found
