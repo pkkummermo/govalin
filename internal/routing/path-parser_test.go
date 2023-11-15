@@ -23,6 +23,7 @@ func TestRootMatching(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, true, pathMatcher.MatchesURL("/"), "Should match on exact match")
 	assert.Equal(t, false, pathMatcher.MatchesURL("/govalin"), "Should not match on partial match")
+	assert.Equal(t, false, pathMatcher.MatchesURL("/govalin/"), "Should not match on trailing slash")
 }
 
 func TestSimpleWildcardMatch(t *testing.T) {
