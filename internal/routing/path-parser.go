@@ -19,6 +19,26 @@ type PathMatcher struct {
 }
 
 func NewPathMatcherFromString(path string) (PathMatcher, error) {
+	if path == "/" {
+		return PathMatcher{
+			path:           path,
+			pathParamNames: []string{},
+			segments:       []pathSegment{rootPathSegment},
+			regexp:         *regexp.MustCompile("^/$"),
+			matchRegexp:    *regexp.MustCompile("^/$"),
+		}, nil
+	}
+
+	if path == "*" {
+		return PathMatcher{
+			path:           path,
+			pathParamNames: []string{},
+			segments:       []pathSegment{wildcardPathSegment},
+			regexp:         *regexp.MustCompile(".*?"),
+			matchRegexp:    *regexp.MustCompile(".*?"),
+		}, nil
+	}
+
 	pathSegments, err := getPathSegments(path)
 
 	if err != nil {
@@ -39,8 +59,8 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 		groupRegexpParts = append(groupRegexpParts, ps.GroupedRegex)
 	}
 
-	fullGroupedRegexpString := strings.Join(groupRegexpParts, "/") + "$"
-	fullRegexpString := strings.Join(regexpParts, "/") + "$"
+	fullGroupedRegexpString := "^/" + strings.Join(groupRegexpParts, "/") + "$"
+	fullRegexpString := "^/" + strings.Join(regexpParts, "/") + "$"
 
 	return PathMatcher{
 		path:           path,
@@ -62,12 +82,8 @@ func getPathSegments(path string) ([]pathSegment, error) {
 		if path != "/" {
 			slog.Warn(fmt.Sprintf("The path '%s' was converted to /", path))
 		}
-		ps, err := newPathSegment("/")
-		if err != nil {
-			return []pathSegment{}, err
-		}
 
-		return []pathSegment{ps}, err
+		return []pathSegment{rootPathSegment}, nil
 	}
 
 	for _, pathPiece := range pathParts {
