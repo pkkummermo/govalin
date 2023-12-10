@@ -116,7 +116,7 @@ func TestStaticFolder(t *testing.T) {
 			t,
 			http.Get("/static/sub/test.html"),
 			"Sub hello world",
-			"Should serve index.html from embedded files on /",
+			"Should serve subfolder html files from embedded files",
 		)
 		notFoundResponse := http.GetResponse("/static/non-existing-path")
 		notFoundBody, _ := io.ReadAll(notFoundResponse.Body)
