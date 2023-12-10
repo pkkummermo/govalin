@@ -59,6 +59,11 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 		groupRegexpParts = append(groupRegexpParts, ps.GroupedRegex)
 	}
 
+	if strings.HasSuffix(path, "/") {
+		groupRegexpParts = append(groupRegexpParts, "/?")
+		regexpParts = append(regexpParts, "/?")
+	}
+
 	fullGroupedRegexpString := "^/" + strings.Join(groupRegexpParts, "/") + "$"
 	fullRegexpString := "^/" + strings.Join(regexpParts, "/") + "$"
 

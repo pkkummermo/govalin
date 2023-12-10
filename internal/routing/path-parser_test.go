@@ -33,6 +33,22 @@ func TestSimpleWildcardMatch(t *testing.T) {
 	assert.Equal(t, true, pathMatcher.MatchesURL("/test"), "Should match on more specific requests")
 }
 
+func TestEndingRouteWildcardMatch(t *testing.T) {
+	pathMatcher, err := routing.NewPathMatcherFromString("/govalin/*")
+	assert.Nil(t, err)
+	assert.Equal(t, false, pathMatcher.MatchesURL("/govalin/"), "Should not match on root request")
+	assert.Equal(t, true, pathMatcher.MatchesURL("/govalin/test"), "Should match on more specific requests")
+	assert.Equal(t, true, pathMatcher.MatchesURL("/govalin/test/with/sub/path"), "Should match on nested requests")
+	assert.Equal(t, false, pathMatcher.MatchesURL("/govalintest"), "Should not match on subpartial match")
+}
+
+func TestWithEndingSlashdMatch(t *testing.T) {
+	pathMatcher, err := routing.NewPathMatcherFromString("/govalin/")
+	assert.Nil(t, err)
+	assert.Equal(t, false, pathMatcher.MatchesURL("/govalin"), "Should not match on root request")
+	assert.Equal(t, true, pathMatcher.MatchesURL("/govalin/"), "Should match on exact")
+}
+
 func TestNestedWildcardMatch(t *testing.T) {
 	pathMatcher, err := routing.NewPathMatcherFromString("foo/*/bar")
 	assert.Nil(t, err)
