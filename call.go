@@ -615,6 +615,7 @@ func (call *Call) Error(err error) {
 		return
 	}
 
+	slog.Error(fmt.Sprintf("Unknown error '%v'. Error not handled", err))
 	call.JSON(validation.NewError(
 		validation.NewErrorResponse(
 			http.StatusInternalServerError,
