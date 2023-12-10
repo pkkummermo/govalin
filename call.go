@@ -539,7 +539,8 @@ func (call *Call) BodyAs(obj any) error {
 
 func (call *Call) SessionAttr(key string, value ...any) (any, error) {
 	if !call.config.server.sessionsEnabled {
-		slog.Warn("Tried to access session attributes when sessions were not enabled")
+		slog.Warn(`Tried to access session attributes when sessions were not enabled.
+To enable, either enable sessions on the app config object or use the session plugin when creating the app`)
 		return nil, errors.New("session handling is not enabled")
 	}
 
