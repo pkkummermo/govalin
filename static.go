@@ -86,7 +86,7 @@ func (config *StaticConfig) handle(call *Call) {
 	var statErr error
 
 	if isFS {
-		_, statErr = fs.Stat(config.fsContent, path)
+		_, statErr = fs.Stat(config.fsContent, strings.TrimPrefix(path, "/"))
 	} else {
 		_, statErr = os.Stat(path)
 	}
