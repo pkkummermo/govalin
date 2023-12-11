@@ -230,7 +230,9 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 		slog.Error(fmt.Sprintf("Could not find free port. %v", err))
 		os.Exit(1)
 	}
-	testInstance := govalin.New()
+	testInstance := govalin.New(func(config *govalin.Config) {
+		config.EnableAccessLog(false)
+	})
 	server := serverF(testInstance)
 
 	go func() {
