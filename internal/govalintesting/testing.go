@@ -232,6 +232,7 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 	}
 	testInstance := govalin.New(func(config *govalin.Config) {
 		config.EnableAccessLog(false)
+		config.EnableStartupLog(false)
 	})
 	server := serverF(testInstance)
 
