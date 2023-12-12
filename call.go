@@ -537,6 +537,12 @@ func (call *Call) BodyAs(obj any) error {
 	return nil
 }
 
+// Get or set a session attribute by key and value
+//
+// Get or set a session attribute based on given key from the request. The
+// session attribute will be stored in the session store and will be available
+// for the next request. If no value is given, it will return the value of the
+// session attribute. If the session attribute is not found, an error will be returned.
 func (call *Call) SessionAttr(key string, value ...any) (any, error) {
 	if !call.config.server.sessionsEnabled {
 		slog.Warn(`Tried to access session attributes when sessions were not enabled.
@@ -556,6 +562,12 @@ To enable, either enable sessions on the app config object or use the session pl
 	return call.session.Data[key], nil
 }
 
+// Get a session attribute by key or default value
+//
+// Get a session attribute based on given key from the request. The
+// session attribute is stored in the session store and will be available
+// for the next request. If the session attribute is not found, the default
+// value will be returned.
 func (call *Call) SessionAttrOrDefault(key string, def any) any {
 	if !call.config.server.sessionsEnabled {
 		slog.Warn("Tried to access session attributes when sessions were not enabled")
