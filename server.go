@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"log/slog"
@@ -211,30 +210,6 @@ func (server *App) Options(path string, handler HandlerFunc) *App {
 // other method handlers or route handlers.
 func (server *App) Head(path string, handler HandlerFunc) *App {
 	server.addMethod(http.MethodHead, server.currentFragment+path, handler)
-	return server
-}
-
-// Add a Static endpoint
-//
-// Add a static endpoint which will serve static files from the given path or bundled FS.
-func (server *App) Static(path string, staticHandlerFunc StaticHandlerFunc) *App {
-	// TODO: this doesn't feel right to override the path like this
-	normalizedPath := strings.TrimRight(path, "/*")
-	wildcardPath := normalizedPath + "/*"
-
-	staticGetHandler := func(call *Call) {
-		internalConfig := newStaticConfig()
-		internalConfig.HostPath(normalizedPath)
-
-		staticHandlerFunc(call, internalConfig)
-
-		internalConfig.handle(call)
-	}
-
-	// TODO: this should be handled by a single handler, not two
-	server.addMethod(http.MethodGet, server.currentFragment+normalizedPath+"/", staticGetHandler)
-	server.addMethod(http.MethodGet, server.currentFragment+wildcardPath, staticGetHandler)
-
 	return server
 }
 

@@ -12,6 +12,7 @@ import (
 	"strings"
 )
 
+// StaticConfig contains configuration for a static handler.
 type StaticConfig struct {
 	hostPath   string
 	spaMode    bool
@@ -134,26 +135,61 @@ func (config *StaticConfig) handle(call *Call) {
 	).ServeHTTP(*call.Raw.W, call.Raw.Req)
 }
 
+// HostPath sets the host path for the static handler. This is trimmed from the
+// URL before serving the static files.
 func (config *StaticConfig) HostPath(hostPath string) *StaticConfig {
 	config.hostPath = hostPath
 
 	return config
 }
 
+// WithStaticPath sets the path to a directory containing static files.
+//
+// The directory will be served at the given path, relative to where the server
+// is started.
 func (config *StaticConfig) WithStaticPath(staticPath string) *StaticConfig {
 	config.staticPath = staticPath
 
 	return config
 }
 
+// WithFS sets the bundled FS to serve static files from.
 func (config *StaticConfig) WithFS(fsContent fs.FS) *StaticConfig {
 	config.fsContent = fsContent
 
 	return config
 }
 
+// EnableSPAMode enables SPA mode for the static handler.
+//
+// SPA mode will serve the index.html file for all requests that doesn't match
+// a static file.
 func (config *StaticConfig) EnableSPAMode(spaMode bool) *StaticConfig {
 	config.spaMode = spaMode
 
 	return config
+}
+
+// Add a Static endpoint
+//
+// Add a static endpoint which will serve static files from the given path or bundled FS.
+func (server *App) Static(path string, staticHandlerFunc StaticHandlerFunc) *App {
+	// TODO: this doesn't feel right to override the path like this
+	normalizedPath := strings.TrimRight(path, "/*")
+	wildcardPath := normalizedPath + "/*"
+
+	staticGetHandler := func(call *Call) {
+		internalConfig := newStaticConfig()
+		internalConfig.HostPath(normalizedPath)
+
+		staticHandlerFunc(call, internalConfig)
+
+		internalConfig.handle(call)
+	}
+
+	// TODO: this should be handled by a single handler, not two
+	server.addMethod(http.MethodGet, server.currentFragment+normalizedPath+"/", staticGetHandler)
+	server.addMethod(http.MethodGet, server.currentFragment+wildcardPath, staticGetHandler)
+
+	return server
 }
