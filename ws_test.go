@@ -54,7 +54,7 @@ func TestWebsocketOnMessage(t *testing.T) {
 	})
 }
 
-func TestWebsocketOnClose(t *testing.T) {
+func TestWebsocketOnCloseDefaultAbnormal(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Ws("/ws", func(wsConfig *govalin.WsConfig) {
 			wsConfig.OnClose = func(closeCode int, closeReason string) {
@@ -73,7 +73,7 @@ func TestWebsocketOnClose(t *testing.T) {
 	})
 }
 
-func TestWebsocket(t *testing.T) {
+func TestWebsocketOnCloseNormal(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Ws("/ws", func(wsConfig *govalin.WsConfig) {
 			wsConfig.OnClose = func(closeCode int, closeReason string) {
