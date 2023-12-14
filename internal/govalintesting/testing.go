@@ -5,11 +5,13 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"log/slog"
 
 	"github.com/ddliu/go-httpclient"
+	"github.com/gorilla/websocket"
 	"github.com/pkkummermo/govalin"
 )
 
@@ -218,6 +220,17 @@ func (govalinHttp *GovalinHTTP) DeleteResponse(path string, deleteData ...any) *
 	}
 
 	return response
+}
+
+func (govalinHttp *GovalinHTTP) Websocket(path string) *websocket.Conn {
+	url := strings.ReplaceAll(govalinHttp.Host, "http", "ws") + path
+	websocket, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		slog.Error(fmt.Sprintf("WS: Failed connect to websocket on url '%s'. %v", url, err))
+		os.Exit(1)
+	}
+
+	return websocket
 }
 
 func (govalinHttp *GovalinHTTP) Raw() *httpclient.HttpClient {
