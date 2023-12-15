@@ -108,6 +108,7 @@ func newConfig() *Config {
 			shutdownTimeoutInMS: defaultShutdownTimeoutInMS,
 			sessionsEnabled:     false,
 			accessLogEnabled:    true,
+			startupLogEnabled:   true,
 		},
 	}
 }
