@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -229,6 +230,12 @@ func (server *App) Start(port ...uint16) error {
 		server.port = server.config.server.port
 	}
 
+	// Reserve port and buffer incoming connections
+	listener, listenerErr := net.Listen("tcp", fmt.Sprintf(":%d", server.port))
+	if listenerErr != nil {
+		return listenerErr
+	}
+
 	// Initialize all plugins
 	for _, plugin := range server.config.server.plugins {
 		slog.Debug(fmt.Sprintf("Plugins: Running Apply for '%s'", plugin.Name()))
@@ -239,7 +246,6 @@ func (server *App) Start(port ...uint16) error {
 
 	server.server = http.Server{
 		ReadHeaderTimeout: time.Second * time.Duration(server.config.server.maxReadTimeout),
-		Addr:              fmt.Sprintf(":%d", server.port),
 		Handler:           server.mux,
 	}
 
@@ -248,11 +254,11 @@ func (server *App) Start(port ...uint16) error {
 		slog.Info(fmt.Sprintf("Server can be accessed at http://localhost:%d", server.port))
 	}
 
-	if err := server.server.ListenAndServe(); err != nil {
-		if errors.Is(err, http.ErrServerClosed) {
+	if serveErr := server.server.Serve(listener); serveErr != nil {
+		if errors.Is(serveErr, http.ErrServerClosed) {
 			return nil
 		}
-		return err
+		return serveErr
 	}
 
 	return nil
