@@ -29,6 +29,27 @@ type serverConfig struct {
 	sessionsEnabled     bool
 	sessionStore        session.Store
 	sessionExpireTime   time.Duration
+	events              ServerEvents
+}
+
+type ServerEvents struct {
+	onServerStartup  []OnServerStartup
+	onServerShutdown []OnServerShutdown
+	onRouteAdded     []OnRouteAdded
+}
+
+type OnServerStartup func()
+type OnServerShutdown func()
+type OnRouteAdded func(method string, path string, handler HandlerFunc)
+
+func (events *ServerEvents) AddOnServerStartup(event OnServerStartup) {
+	events.onServerStartup = append(events.onServerStartup, event)
+}
+func (events *ServerEvents) AddOnServerShutdown(event OnServerShutdown) {
+	events.onServerShutdown = append(events.onServerShutdown, event)
+}
+func (events *ServerEvents) AddOnRouteAdded(event OnRouteAdded) {
+	events.onRouteAdded = append(events.onRouteAdded, event)
 }
 
 // Config contains configuration for a Govalin instance.
@@ -40,6 +61,12 @@ type Config struct {
 // instance.
 func (config *Config) Plugin(plugin Plugin) *Config {
 	config.server.plugins = append(config.server.plugins, plugin)
+	return config
+}
+
+// Events allows you to subscribe to server events such as startup and shutdown on the Govalin instance.
+func (config *Config) Events(eventFunc func(serverEvents *ServerEvents)) *Config {
+	eventFunc(&config.server.events)
 	return config
 }
 
@@ -109,6 +136,11 @@ func newConfig() *Config {
 			sessionsEnabled:     false,
 			accessLogEnabled:    true,
 			startupLogEnabled:   true,
+			events: ServerEvents{
+				onServerStartup:  []OnServerStartup{},
+				onServerShutdown: []OnServerShutdown{},
+				onRouteAdded:     []OnRouteAdded{},
+			},
 		},
 	}
 }

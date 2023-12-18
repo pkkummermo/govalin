@@ -116,6 +116,10 @@ func (server *App) addMethod(method string, fullPath string, methodHandler Handl
 		slog.Warn(fmt.Sprintf("Unhandled method %s on path %s", method, fullPath))
 		return
 	}
+
+	for _, onRouteAdded := range server.config.server.events.onRouteAdded {
+		onRouteAdded(method, fullPath, methodHandler)
+	}
 }
 
 // Add a before handler to given path
@@ -254,6 +258,14 @@ func (server *App) Start(port ...uint16) error {
 		slog.Info(fmt.Sprintf("Server can be accessed at http://localhost:%d", server.port))
 	}
 
+	for _, onServerStartup := range server.config.server.events.onServerStartup {
+		onServerStartup()
+	}
+
+	for _, onServerStartup := range server.config.server.events.onServerStartup {
+		onServerStartup()
+	}
+
 	if serveErr := server.server.Serve(listener); serveErr != nil {
 		if errors.Is(serveErr, http.ErrServerClosed) {
 			return nil
@@ -271,6 +283,10 @@ func (server *App) Shutdown() error {
 	if !server.started {
 		slog.Warn("Server was not started")
 		return nil
+	}
+
+	for _, onServerShutdown := range server.config.server.events.onServerShutdown {
+		onServerShutdown()
 	}
 
 	if server.config.server.startupLogEnabled {
