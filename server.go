@@ -262,10 +262,6 @@ func (server *App) Start(port ...uint16) error {
 		onServerStartup()
 	}
 
-	for _, onServerStartup := range server.config.server.events.onServerStartup {
-		onServerStartup()
-	}
-
 	if serveErr := server.server.Serve(listener); serveErr != nil {
 		if errors.Is(serveErr, http.ErrServerClosed) {
 			return nil
