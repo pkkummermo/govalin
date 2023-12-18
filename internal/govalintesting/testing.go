@@ -15,7 +15,7 @@ import (
 	"github.com/pkkummermo/govalin"
 )
 
-const startupInMS = 1
+const generalStartupTimeoutInMS = 1
 
 type TestFunc func(app *govalin.App) *govalin.App
 type ExecFunc func(http GovalinHTTP)
@@ -243,10 +243,17 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 		slog.Error(fmt.Sprintf("Could not find free port. %v", err))
 		os.Exit(1)
 	}
+	startupChann := make(chan (bool))
 	testInstance := govalin.New(func(config *govalin.Config) {
 		config.EnableAccessLog(false)
 		config.EnableStartupLog(false)
+		config.Events(func(serverEvents *govalin.ServerEvents) {
+			serverEvents.AddOnServerStartup(func() {
+				startupChann <- true
+			})
+		})
 	})
+
 	server := serverF(testInstance)
 
 	go func() {
@@ -257,7 +264,18 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 		}
 	}()
 
-	time.Sleep(time.Millisecond * startupInMS)
+	// If the server is the test instance, we wait for the configured startup event.
+	if server == testInstance {
+		select {
+		case <-startupChann:
+		case <-time.After(generalStartupTimeoutInMS * time.Millisecond):
+			slog.Error(fmt.Sprintf("Server startup timed out after %d ms", generalStartupTimeoutInMS))
+			os.Exit(1)
+		}
+	} else {
+		// If the server is not the test instance, we wait for the default startup timeout.
+		time.Sleep(generalStartupTimeoutInMS * time.Millisecond)
+	}
 
 	testFunc(GovalinHTTP{http: *httpclient.Defaults(
 		httpclient.Map{
