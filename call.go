@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strings"
 	"time"
-
-	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/pkkummermo/govalin/internal/http/charsets"
@@ -90,7 +89,7 @@ func initiateSessionFromCall(call *Call) {
 	if errors.Is(http.ErrNoCookie, getSessionErr) {
 		addNewSessionErr := addNewSessionToCall(call)
 		if addNewSessionErr != nil {
-			slog.Error("Failed to add new session to call", addNewSessionErr)
+			slog.Error("Failed to add new session to call", "err", addNewSessionErr)
 		}
 		return
 	}
@@ -98,10 +97,10 @@ func initiateSessionFromCall(call *Call) {
 	session, getSessionErr := call.config.server.sessionStore.GetSession(sessionCookie.Value, 0)
 	// The session might be expired, so we need to create a new one
 	if getSessionErr != nil {
-		slog.Debug("Failed to get session from session store, adding new session", getSessionErr)
+		slog.Debug("Failed to get session from session store, adding new session", "err", getSessionErr)
 		addNewSessionErr := addNewSessionToCall(call)
 		if addNewSessionErr != nil {
-			slog.Error("Failed to add new session to call", addNewSessionErr)
+			slog.Error("Failed to add new session to call", "err", addNewSessionErr)
 		}
 		return
 	}
@@ -114,14 +113,14 @@ func addNewSessionToCall(call *Call) error {
 		CreateSession(time.Now().Add(call.config.server.sessionExpireTime).UnixNano())
 
 	if createSessionErr != nil {
-		slog.Error("Failed to create session", createSessionErr)
+		slog.Error("Failed to create session", "err", createSessionErr)
 		return createSessionErr
 	}
 
 	session, getNewSessionErr := call.config.server.sessionStore.
 		GetSession(sessionID, 0)
 	if getNewSessionErr != nil {
-		slog.Error("Failed to get session from session store", getNewSessionErr)
+		slog.Error("Failed to get session from session store", "err", getNewSessionErr)
 		return getNewSessionErr
 	}
 
@@ -131,7 +130,7 @@ func addNewSessionToCall(call *Call) error {
 		HttpOnly: true,
 	})
 	if cookieErr != nil {
-		slog.Error("Failed to set session cookie", cookieErr)
+		slog.Error("Failed to set session cookie", "err", cookieErr)
 		return cookieErr
 	}
 
@@ -178,7 +177,7 @@ func (call *Call) parseForm() error {
 	case strings.Contains(contentType, contenttypes.ApplicationFormURLEncoded):
 		err := call.req.ParseForm()
 		if err != nil {
-			slog.Error("Failed to parse form data", err)
+			slog.Error("Failed to parse form data", "err", err)
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
 				validation.NewParameterErrorDetail(
@@ -191,7 +190,7 @@ func (call *Call) parseForm() error {
 	case strings.Contains(contentType, contenttypes.MultipartFormData):
 		err := call.req.ParseMultipartForm(0)
 		if err != nil {
-			slog.Error("Failed to parse form data", err)
+			slog.Error("Failed to parse form data", "err", err)
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
 				validation.NewParameterErrorDetail(
@@ -486,7 +485,6 @@ func (call *Call) HTML(text string) {
 func (call *Call) JSON(obj interface{}) {
 	call.w.Header().Add(headers.ContentType, headers.ContentTypeHeader(contenttypes.ApplicationJSON, charsets.UTF8))
 	jsonBytes, err := json.Marshal(obj)
-
 	if err != nil {
 		slog.Error(fmt.Sprintf("error when trying to JSON marshall object, %v", err))
 	}
@@ -494,7 +492,6 @@ func (call *Call) JSON(obj interface{}) {
 	call.sendStatusOrDefault()
 
 	_, err = call.w.Write(jsonBytes)
-
 	if err != nil {
 		slog.Error(fmt.Sprintf("error when trying write to response, %v", err))
 	}
@@ -520,7 +517,6 @@ func (call *Call) Redirect(url string, permanent ...bool) {
 // expecting the body to be JSON. Returns an error on failed unmarshalling or non-pointer.
 func (call *Call) BodyAs(obj any) error {
 	bodyBytes, err := call.readBody()
-
 	if err != nil {
 		return err
 	}
