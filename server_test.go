@@ -277,4 +277,36 @@ func TestRoute(t *testing.T) {
 			"Should create endpoint within nested routes",
 		)
 	})
+
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Route("/test", func() {
+			app.Route("/subroute", func() {
+				app.Get("/get", func(call *govalin.Call) {
+					call.Text("subroutegovalin")
+				})
+			})
+		})
+		app.Route("/test2", func() {
+			app.Route("/subroute2", func() {
+				app.Get("/get", func(call *govalin.Call) {
+					call.Text("subroutegovalin2")
+				})
+			})
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		assert.Equal(
+			t,
+			"subroutegovalin",
+			http.Get("/test/subroute/get"),
+			"Should create endpoint within nested routes",
+		)
+		assert.Equal(
+			t,
+			"subroutegovalin2",
+			http.Get("/test2/subroute2/get"),
+			"Should create endpoint2 within nested routes on new route endpoint",
+		)
+	})
 }
