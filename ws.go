@@ -28,9 +28,9 @@ type WsConfig struct {
 func newWsConfig() *WsConfig {
 	return &WsConfig{
 		OnUpgrade: defaultOnUpgrade,
-		OnOpen:    func(wsCall *WsConnection) {},
-		OnMessage: func(wsMessage *WsMessage) {},
-		OnClose:   func(closeCode int, closeReason string) {},
+		OnOpen:    func(_ *WsConnection) {},
+		OnMessage: func(_ *WsMessage) {},
+		OnClose:   func(_ int, _ string) {},
 		OnError: func(err error) {
 			slog.Error("Error occured on websocket", "err", err)
 		},
@@ -39,14 +39,18 @@ func newWsConfig() *WsConfig {
 
 type WsHandlerFunc func(wsConfig *WsConfig)
 
-type WsOnUpgradeFunc func(call *Call) (*WsConnection, error)
-type WsOnOpenFunc func(wsConnection *WsConnection)
-type WsOnCloseFunc func(closeCode int, closeReason string)
-type WsOnErrorFunc func(err error)
-type WsOnMessageFunc func(wsMessage *WsMessage)
+type (
+	WsOnUpgradeFunc func(call *Call) (*WsConnection, error)
+	WsOnOpenFunc    func(wsConnection *WsConnection)
+	WsOnCloseFunc   func(closeCode int, closeReason string)
+	WsOnErrorFunc   func(err error)
+	WsOnMessageFunc func(wsMessage *WsMessage)
+)
 
-const defaultWSReadBufferSize = 1024
-const defaultWSWriteBufferSize = 1024
+const (
+	defaultWSReadBufferSize  = 1024
+	defaultWSWriteBufferSize = 1024
+)
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  defaultWSReadBufferSize,

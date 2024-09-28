@@ -3,12 +3,11 @@ package govalintesting
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"strings"
 	"time"
-
-	"log/slog"
 
 	"github.com/ddliu/go-httpclient"
 	"github.com/gorilla/websocket"
@@ -17,8 +16,10 @@ import (
 
 const generalStartupTimeoutInMS = 1
 
-type TestFunc func(app *govalin.App) *govalin.App
-type ExecFunc func(http GovalinHTTP)
+type (
+	TestFunc func(app *govalin.App) *govalin.App
+	ExecFunc func(http GovalinHTTP)
+)
 
 // GovalinHTTP is a simple wrapper with utility methods to simplify testing.
 type GovalinHTTP struct {
@@ -302,5 +303,5 @@ func freePort() (uint16, error) {
 		return 0, err
 	}
 	defer l.Close()
-	return uint16(l.Addr().(*net.TCPAddr).Port), nil
+	return uint16(l.Addr().(*net.TCPAddr).Port), nil //nolint: gosec // Ports dont go higher than 65535
 }

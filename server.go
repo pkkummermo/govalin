@@ -326,7 +326,7 @@ func (server *App) getPathHandlerByPath(path string) (*pathHandler, error) {
 	}
 
 	return &pathHandler{}, fmt.Errorf(
-		fmt.Sprintf("No pathHandler found for given path %s", path),
+		"no pathHandler found for given path %s", path,
 	)
 }
 

@@ -15,7 +15,7 @@ import (
 )
 
 func TestLocalhostRedirectToHTTPS(t *testing.T) {
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
 			config.Plugin(routing.NewHTTPtoHTTPS().RedirectLocalHost(true))
 		}).Get("/govalin", func(call *govalin.Call) {
@@ -35,7 +35,7 @@ func TestLocalhostRedirectToHTTPS(t *testing.T) {
 }
 
 func TestDefaultsDoesNotRedirectLocalhost(t *testing.T) {
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
 			config.Plugin(routing.NewHTTPtoHTTPS())
 		}).Get("/govalin", func(call *govalin.Call) {
@@ -56,7 +56,7 @@ func TestDefaultsDoesNotRedirectLocalhost(t *testing.T) {
 }
 
 func TestRedirectOnExternalHost(t *testing.T) {
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
 			config.Plugin(routing.NewHTTPtoHTTPS())
 		}).Get("/govalin", func(call *govalin.Call) {
@@ -67,7 +67,7 @@ func TestRedirectOnExternalHost(t *testing.T) {
 			Raw().
 			Begin().
 			WithOption(httpclient.OPT_FOLLOWLOCATION, false).
-			WithOption(httpclient.OPT_BEFORE_REQUEST_FUNC, func(client *http.Client, req *http.Request) {
+			WithOption(httpclient.OPT_BEFORE_REQUEST_FUNC, func(_ *http.Client, req *http.Request) {
 				req.Host = "govalin.io"
 			}).
 			Get(govalinHttp.Host + "/govalin")

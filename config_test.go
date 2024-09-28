@@ -9,7 +9,7 @@ import (
 )
 
 func TestServerMaxBodyReadSizeConfig(t *testing.T) {
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
 		newApp := govalin.New(func(config *govalin.Config) {
 			config.ServerMaxBodyReadSize(4)
 		})
@@ -38,7 +38,7 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 		)
 	})
 
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
 		newApp := govalin.New(func(config *govalin.Config) {
 			config.ServerMaxBodyReadSize(4)
 		})
@@ -67,7 +67,7 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 		)
 	})
 
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
 		newApp := govalin.New(func(config *govalin.Config) {
 			config.ServerMaxBodyReadSize(4)
 		})

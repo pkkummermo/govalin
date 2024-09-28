@@ -18,7 +18,7 @@ func TestStaticFS(t *testing.T) {
 	staticRoot, _ := fs.Sub(staticTestFiles, "internal/testdata/static")
 
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
-		app.Static("/fs", func(call *govalin.Call, staticConfig *govalin.StaticConfig) {
+		app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
 			staticConfig.WithFS(staticRoot)
 		})
 
@@ -63,7 +63,7 @@ func TestStaticFSSPAMode(t *testing.T) {
 	staticRoot, _ := fs.Sub(staticTestFiles, "internal/testdata/static")
 
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
-		app.Static("/fsspa", func(call *govalin.Call, staticConfig *govalin.StaticConfig) {
+		app.Static("/fsspa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
 			staticConfig.
 				WithFS(staticRoot).
 				EnableSPAMode(true)
@@ -94,7 +94,7 @@ func TestStaticFSSPAMode(t *testing.T) {
 
 func TestStaticFolder(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
-		app.Static("/static", func(call *govalin.Call, staticConfig *govalin.StaticConfig) {
+		app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
 			staticConfig.WithStaticPath("internal/testdata/static")
 		})
 
@@ -137,7 +137,7 @@ func TestStaticFolder(t *testing.T) {
 
 func TestStaticFolderSPAMode(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
-		app.Static("/staticspa", func(call *govalin.Call, staticConfig *govalin.StaticConfig) {
+		app.Static("/staticspa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
 			staticConfig.
 				WithStaticPath("internal/testdata/static").
 				EnableSPAMode(true)

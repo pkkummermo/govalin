@@ -124,7 +124,6 @@ func TestCookies(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Get("/cookies", func(call *govalin.Call) {
 			govalinCookie, err := call.Cookie("govalin")
-
 			if err != nil {
 				call.Text(err.Error())
 				return
@@ -148,7 +147,6 @@ func TestCookies(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Get("/setcookies", func(call *govalin.Call) {
 			_, err := call.Cookie("govalin", &http.Cookie{Value: "govalin"})
-
 			if err != nil {
 				call.Text(err.Error())
 				return
@@ -171,7 +169,7 @@ func TestCookies(t *testing.T) {
 }
 
 func TestSession(t *testing.T) {
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
 			config.EnableSessions()
 		}).Get("/govalin", func(call *govalin.Call) {
@@ -188,7 +186,7 @@ func TestSession(t *testing.T) {
 		)
 	})
 
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
 			config.EnableSessions()
 		}).Get("/govalin", func(call *govalin.Call) {
@@ -210,7 +208,7 @@ func TestSession(t *testing.T) {
 		)
 	})
 
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
 		return govalin.New(func(config *govalin.Config) {
 			config.EnableSessions()
 		}).
@@ -219,7 +217,6 @@ func TestSession(t *testing.T) {
 			}).
 			Get("/set", func(call *govalin.Call) {
 				_, err := call.SessionAttr("test", "govalin")
-
 				if err != nil {
 					call.Error(err)
 					return
