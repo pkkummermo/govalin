@@ -4,20 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"time"
 
-	"log/slog"
-
 	"github.com/pkkummermo/govalin/internal/validation"
 )
 
-type HandlerFunc func(call *Call)
-type BeforeFunc func(call *Call) bool
-type AfterFunc func(call *Call)
-type StaticHandlerFunc func(call *Call, staticConfig *StaticConfig)
+type (
+	HandlerFunc       func(call *Call)
+	BeforeFunc        func(call *Call) bool
+	AfterFunc         func(call *Call)
+	StaticHandlerFunc func(call *Call, staticConfig *StaticConfig)
+)
 
 type App struct {
 	config          *Config
@@ -67,7 +68,7 @@ func (server *App) Route(path string, scopeFunc func()) *App {
 }
 
 func (server *App) addMethod(method string, fullPath string, methodHandler HandlerFunc) {
-	var handler = server.getOrCreatePathHandlerByPath(fullPath)
+	handler := server.getOrCreatePathHandlerByPath(fullPath)
 
 	switch method {
 	case http.MethodGet:
@@ -129,7 +130,7 @@ func (server *App) addMethod(method string, fullPath string, methodHandler Handl
 // short circuited.
 func (server *App) Before(path string, beforeFunc BeforeFunc) {
 	fullPath := server.currentFragment + path
-	var handler = server.getOrCreatePathHandlerByPath(fullPath)
+	handler := server.getOrCreatePathHandlerByPath(fullPath)
 
 	if handler.Before != nil {
 		slog.Error(fmt.Sprintf("Before already exists on path %s.", fullPath))
@@ -145,7 +146,7 @@ func (server *App) Before(path string, beforeFunc BeforeFunc) {
 // the same request.
 func (server *App) After(path string, afterFunc AfterFunc) {
 	fullPath := server.currentFragment + path
-	var handler = server.getOrCreatePathHandlerByPath(fullPath)
+	handler := server.getOrCreatePathHandlerByPath(fullPath)
 
 	if handler.After != nil {
 		slog.Error(fmt.Sprintf("Before already exists on path %s.", fullPath))
@@ -347,7 +348,7 @@ func (server *App) matchBeforeHandlers(call *Call) bool {
 func (server *App) matchHandlers(call *Call) {
 	for _, pathHandler := range server.pathHandlers {
 		if pathHandler.GetHandlerByMethod(call.Method()) != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
-			var handler = pathHandler.GetHandlerByMethod(call.Method())
+			handler := pathHandler.GetHandlerByMethod(call.Method())
 			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
 			handler(call)
 			break
