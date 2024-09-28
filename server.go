@@ -332,6 +332,9 @@ func (server *App) getPathHandlerByPath(path string) (*pathHandler, error) {
 
 func (server *App) matchBeforeHandlers(call *Call) bool {
 	for _, pathHandler := range server.pathHandlers {
+		if call.bypassLifecycle {
+			return false
+		}
 		if pathHandler.Before != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
 			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
 
@@ -347,6 +350,10 @@ func (server *App) matchBeforeHandlers(call *Call) bool {
 
 func (server *App) matchHandlers(call *Call) {
 	for _, pathHandler := range server.pathHandlers {
+		if call.bypassLifecycle {
+			return
+		}
+
 		if pathHandler.GetHandlerByMethod(call.Method()) != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
 			handler := pathHandler.GetHandlerByMethod(call.Method())
 			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
@@ -358,6 +365,9 @@ func (server *App) matchHandlers(call *Call) {
 
 func (server *App) matchAfterHandlers(call *Call) {
 	for _, pathHandler := range server.pathHandlers {
+		if call.bypassLifecycle {
+			return
+		}
 		if pathHandler.After != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
 			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
 			pathHandler.After(call)
@@ -377,17 +387,26 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	)
 
 	// Look for before handlers
-	if !server.matchBeforeHandlers(&call) {
+	if !server.matchBeforeHandlers(&call) && !call.bypassLifecycle {
 		// Before handler returned false, meaning short circuit, meaning we need to log access log here
 		server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+		return
+	}
+	if call.bypassLifecycle {
 		return
 	}
 
 	// Look for endpoint handler
 	server.matchHandlers(&call)
+	if call.bypassLifecycle {
+		return
+	}
 
 	// Look for After handlers
 	server.matchAfterHandlers(&call)
+	if call.bypassLifecycle {
+		return
+	}
 
 	// No status set, meaning no handlers have handled the request properly,
 	// ie 404 / not found

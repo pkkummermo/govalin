@@ -36,17 +36,18 @@ type raw struct {
 // values and uses the same method for getting values from the request and setting
 // values on the response by having optional values.
 type Call struct {
-	id            string
-	config        *Config
-	status        int
-	statusWritten bool
-	w             http.ResponseWriter
-	req           *http.Request
-	pathParams    map[string]string
-	bodyBytes     []byte
-	charset       string
-	session       session.Session
-	Raw           raw // Raw contains the raw request and response
+	id              string
+	config          *Config
+	status          int
+	statusWritten   bool
+	bypassLifecycle bool
+	w               http.ResponseWriter
+	req             *http.Request
+	pathParams      map[string]string
+	bodyBytes       []byte
+	charset         string
+	session         session.Session
+	Raw             raw // Raw contains the raw request and response
 }
 
 func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config, pathParams map[string]string) Call {
@@ -60,13 +61,14 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 	}
 
 	call := Call{
-		id:         uniqueID,
-		config:     config,
-		w:          w,
-		req:        req,
-		status:     0,
-		pathParams: pathParams,
-		charset:    charsets.UTF8,
+		id:              uniqueID,
+		config:          config,
+		w:               w,
+		req:             req,
+		status:          0,
+		bypassLifecycle: false,
+		pathParams:      pathParams,
+		charset:         charsets.UTF8,
 		Raw: raw{
 			W:   &w,
 			Req: req,
