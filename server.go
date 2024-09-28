@@ -61,7 +61,7 @@ func (server *App) Route(path string, scopeFunc func()) *App {
 
 	scopeFunc()
 
-	server.currentFragment = server.currentFragment[:len(server.currentFragment)-1]
+	server.currentFragment = server.currentFragment[:len(server.currentFragment)-len(path)]
 
 	return server
 }
