@@ -57,7 +57,7 @@ func TestWebsocketOnMessage(t *testing.T) {
 func TestWebsocketOnCloseDefaultAbnormal(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Ws("/ws", func(wsConfig *govalin.WsConfig) {
-			wsConfig.OnClose = func(closeCode int, closeReason string) {
+			wsConfig.OnClose = func(closeCode int, _ string) {
 				assert.Equal(
 					t,
 					websocket.CloseAbnormalClosure,
@@ -76,7 +76,7 @@ func TestWebsocketOnCloseDefaultAbnormal(t *testing.T) {
 func TestWebsocketOnCloseNormal(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Ws("/ws", func(wsConfig *govalin.WsConfig) {
-			wsConfig.OnClose = func(closeCode int, closeReason string) {
+			wsConfig.OnClose = func(closeCode int, _ string) {
 				assert.Equal(
 					t,
 					websocket.CloseNormalClosure,

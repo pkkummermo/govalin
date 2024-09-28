@@ -86,7 +86,7 @@ func initiateSessionFromCall(call *Call) {
 	sessionCookie, getSessionErr := call.Cookie(sessionCookieName)
 
 	// Create the session if it doesn't exist
-	if errors.Is(http.ErrNoCookie, getSessionErr) {
+	if errors.Is(getSessionErr, http.ErrNoCookie) {
 		addNewSessionErr := addNewSessionToCall(call)
 		if addNewSessionErr != nil {
 			slog.Error("Failed to add new session to call", "err", addNewSessionErr)
