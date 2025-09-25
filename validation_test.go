@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/internal/govalintesting"
+	"github.com/pkkummermo/govalin/validation"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -168,27 +169,27 @@ func TestValidatedBody(t *testing.T) {
 			}
 			
 			// Now validate the parsed user data using proper validation
-			nameValidator := govalin.NewStringValidator().
-				Rule(govalin.Required()).
-				Rule(govalin.MinLength(2))
+			nameValidator := validation.NewStringValidator().
+				Rule(validation.Required()).
+				Rule(validation.MinLength(2))
 			
 			if err := nameValidator.Validate(user.Name, "Name"); err != nil {
 				call.Error(err)
 				return
 			}
 			
-			emailValidator := govalin.NewStringValidator().
-				Rule(govalin.Required()).
-				Rule(govalin.Email())
+			emailValidator := validation.NewStringValidator().
+				Rule(validation.Required()).
+				Rule(validation.Email())
 			
 			if err := emailValidator.Validate(user.Email, "Email"); err != nil {
 				call.Error(err)
 				return
 			}
 			
-			ageValidator := govalin.NewIntValidator().
-				Rule(govalin.Min(18)).
-				Rule(govalin.Max(100))
+			ageValidator := validation.NewIntValidator().
+				Rule(validation.Min(18)).
+				Rule(validation.Max(100))
 			
 			if err := ageValidator.Validate(user.Age, "Age"); err != nil {
 				call.Error(err)
@@ -287,10 +288,10 @@ func TestPublicValidationAPI(t *testing.T) {
 			name := call.QueryParam("name")
 			
 			// Demonstrate using public validation API for custom scenarios
-			validator := govalin.NewStringValidator().
-				Rule(govalin.Required()).
-				Rule(govalin.MinLength(3)).
-				Rule(govalin.CustomString(func(s string) bool {
+			validator := validation.NewStringValidator().
+				Rule(validation.Required()).
+				Rule(validation.MinLength(3)).
+				Rule(validation.CustomString(func(s string) bool {
 					// Custom validation: name must start with uppercase
 					return len(s) > 0 && s[0] >= 'A' && s[0] <= 'Z'
 				}, "Name must start with an uppercase letter"))
