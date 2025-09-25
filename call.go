@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -631,4 +632,80 @@ func (call *Call) Error(err error) {
 			http.StatusInternalServerError,
 		),
 	).ErrorResponse)
+}
+
+// Validation methods that combine parameter retrieval with validation
+
+// ValidatedQueryParam retrieves and validates a query parameter
+func (call *Call) ValidatedQueryParam(key string, validator *Validator[string]) (string, error) {
+	value := call.QueryParam(key)
+	if err := validator.Validate(value, key); err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+// ValidatedPathParam retrieves and validates a path parameter
+func (call *Call) ValidatedPathParam(key string, validator *Validator[string]) (string, error) {
+	value := call.PathParam(key)
+	if err := validator.Validate(value, key); err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+// ValidatedFormParam retrieves and validates a form parameter
+func (call *Call) ValidatedFormParam(key string, validator *Validator[string]) (string, error) {
+	value, err := call.FormParam(key)
+	if err != nil {
+		return "", err
+	}
+	if err := validator.Validate(value, key); err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+// ValidatedBody retrieves and validates the request body
+func (call *Call) ValidatedBody(target interface{}, validator *StructValidator) error {
+	if err := call.BodyAs(target); err != nil {
+		return err
+	}
+	if err := validator.Validate(target); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidatedQueryParamAsInt retrieves a query parameter, converts it to int, and validates it
+func (call *Call) ValidatedQueryParamAsInt(key string, validator *Validator[int]) (int, error) {
+	value := call.QueryParam(key)
+	if err := ValidateStringAsInt(value, key, validator); err != nil {
+		return 0, err
+	}
+	result, _ := strconv.Atoi(value) // We know this won't fail since ValidateStringAsInt passed
+	return result, nil
+}
+
+// ValidatedPathParamAsInt retrieves a path parameter, converts it to int, and validates it
+func (call *Call) ValidatedPathParamAsInt(key string, validator *Validator[int]) (int, error) {
+	value := call.PathParam(key)
+	if err := ValidateStringAsInt(value, key, validator); err != nil {
+		return 0, err
+	}
+	result, _ := strconv.Atoi(value) // We know this won't fail since ValidateStringAsInt passed
+	return result, nil
+}
+
+// ValidatedFormParamAsInt retrieves a form parameter, converts it to int, and validates it
+func (call *Call) ValidatedFormParamAsInt(key string, validator *Validator[int]) (int, error) {
+	value, err := call.FormParam(key)
+	if err != nil {
+		return 0, err
+	}
+	if err := ValidateStringAsInt(value, key, validator); err != nil {
+		return 0, err
+	}
+	result, _ := strconv.Atoi(value) // We know this won't fail since ValidateStringAsInt passed
+	return result, nil
 }

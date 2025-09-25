@@ -15,6 +15,13 @@ type StructValidator = validation.StructValidator
 type ValidationError = validation.Error
 
 // Validate creates a new type-safe validator for the specified type T
+// 
+// For simpler usage, consider using the Call validation methods:
+//   - call.ValidatedQueryParam("name", validator) 
+//   - call.ValidatedPathParam("id", validator)
+//   - call.ValidatedFormParam("email", validator)
+//   - call.ValidatedBody(&user, structValidator)
+//
 // Example usage:
 //   validator := govalin.Validate[string]().Rule(govalin.Required()).Rule(govalin.MinLength(3))
 //   if err := validator.Validate(userInput, "username"); err != nil { ... }
@@ -23,6 +30,9 @@ func Validate[T any]() *Validator[T] {
 }
 
 // ValidateStruct creates a new struct validator
+//
+// For simpler usage, consider using call.ValidatedBody(&target, validator)
+//
 // Example usage:
 //   validator := govalin.ValidateStruct().Field("Name", func(v interface{}) *govalin.ValidationError {
 //       return govalin.Validate[string]().Rule(govalin.Required()).Validate(v.(string), "Name")
