@@ -654,9 +654,10 @@ type IntValidator struct {
 
 // BodyValidator provides validation for request body
 type BodyValidator struct {
-	call   *Call
-	target interface{}
-	rules  []func(interface{}) error
+	call         *Call
+	target       interface{}
+	rules        []func(interface{}) error
+	currentField string
 }
 
 // ValidatedQueryParam returns a curryable string validator for query parameters
@@ -928,4 +929,178 @@ func (v *BodyValidator) Get() error {
 		}
 	}
 	return nil
+}
+
+// ValidateField sets the current field for validation and returns a BodyFieldValidator
+func (v *BodyValidator) ValidateField(fieldName string) *BodyFieldValidator {
+	return &BodyFieldValidator{
+		bodyValidator: v,
+		fieldName:     fieldName,
+	}
+}
+
+// BodyFieldValidator allows chaining validation rules for a specific field
+type BodyFieldValidator struct {
+	bodyValidator *BodyValidator
+	fieldName     string
+}
+
+// Required adds a required validation rule for the current field
+func (f *BodyFieldValidator) Required() *BodyFieldValidator {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+		val := reflect.ValueOf(data).Elem()
+		field := val.FieldByName(f.fieldName)
+		if !field.IsValid() {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
+			))
+		}
+		
+		if field.Kind() == reflect.String && strings.TrimSpace(field.String()) == "" {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, "This field is required"),
+			))
+		}
+		return nil
+	})
+	return f
+}
+
+// MinLength adds a minimum length validation rule for string fields
+func (f *BodyFieldValidator) MinLength(min int) *BodyFieldValidator {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+		val := reflect.ValueOf(data).Elem()
+		field := val.FieldByName(f.fieldName)
+		if !field.IsValid() {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
+			))
+		}
+		
+		if field.Kind() == reflect.String && len(field.String()) < min {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at least %d characters long", min)),
+			))
+		}
+		return nil
+	})
+	return f
+}
+
+// MaxLength adds a maximum length validation rule for string fields
+func (f *BodyFieldValidator) MaxLength(max int) *BodyFieldValidator {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+		val := reflect.ValueOf(data).Elem()
+		field := val.FieldByName(f.fieldName)
+		if !field.IsValid() {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
+			))
+		}
+		
+		if field.Kind() == reflect.String && len(field.String()) > max {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at most %d characters long", max)),
+			))
+		}
+		return nil
+	})
+	return f
+}
+
+// Email adds an email validation rule for string fields
+func (f *BodyFieldValidator) Email() *BodyFieldValidator {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+		val := reflect.ValueOf(data).Elem()
+		field := val.FieldByName(f.fieldName)
+		if !field.IsValid() {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
+			))
+		}
+		
+		if field.Kind() == reflect.String {
+			email := field.String()
+			if email != "" && !strings.Contains(email, "@") {
+				return validation.NewError(validation.NewErrorResponse(
+					http.StatusBadRequest,
+					validation.NewParameterErrorDetail(f.fieldName, "Must be a valid email address"),
+				))
+			}
+		}
+		return nil
+	})
+	return f
+}
+
+// Min adds a minimum value validation rule for integer fields
+func (f *BodyFieldValidator) Min(min int) *BodyFieldValidator {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+		val := reflect.ValueOf(data).Elem()
+		field := val.FieldByName(f.fieldName)
+		if !field.IsValid() {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
+			))
+		}
+		
+		if field.Kind() == reflect.Int && int(field.Int()) < min {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at least %d", min)),
+			))
+		}
+		return nil
+	})
+	return f
+}
+
+// Max adds a maximum value validation rule for integer fields
+func (f *BodyFieldValidator) Max(max int) *BodyFieldValidator {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+		val := reflect.ValueOf(data).Elem()
+		field := val.FieldByName(f.fieldName)
+		if !field.IsValid() {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
+			))
+		}
+		
+		if field.Kind() == reflect.Int && int(field.Int()) > max {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at most %d", max)),
+			))
+		}
+		return nil
+	})
+	return f
+}
+
+// Custom adds a custom validation rule for the current field
+func (f *BodyFieldValidator) Custom(validatorFn func(interface{}) bool, message string) *BodyFieldValidator {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+		if !validatorFn(data) {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(f.fieldName, message),
+			))
+		}
+		return nil
+	})
+	return f
+}
+
+// Get completes the field validation and returns the body validator for more fields or final validation
+func (f *BodyFieldValidator) Get() *BodyValidator {
+	return f.bodyValidator
 }

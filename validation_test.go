@@ -162,36 +162,14 @@ func TestValidatedBody(t *testing.T) {
 		app.Post("/validate-body", func(call *govalin.Call) {
 			var user TestUser
 			
-			// Parse the body first
-			if err := call.ValidatedBody(&user).Get(); err != nil {
-				call.Error(err)
-				return
-			}
+			// Use generic validation methods on ValidatedBody - no validation package import needed!
+			err := call.ValidatedBody(&user).
+				ValidateField("Name").Required().MinLength(2).Get().
+				ValidateField("Email").Required().Email().Get().
+				ValidateField("Age").Min(18).Max(100).Get().
+				Get()
 			
-			// Now validate the parsed user data using proper validation
-			nameValidator := validation.NewStringValidator().
-				Rule(validation.Required()).
-				Rule(validation.MinLength(2))
-			
-			if err := nameValidator.Validate(user.Name, "Name"); err != nil {
-				call.Error(err)
-				return
-			}
-			
-			emailValidator := validation.NewStringValidator().
-				Rule(validation.Required()).
-				Rule(validation.Email())
-			
-			if err := emailValidator.Validate(user.Email, "Email"); err != nil {
-				call.Error(err)
-				return
-			}
-			
-			ageValidator := validation.NewIntValidator().
-				Rule(validation.Min(18)).
-				Rule(validation.Max(100))
-			
-			if err := ageValidator.Validate(user.Age, "Age"); err != nil {
+			if err != nil {
 				call.Error(err)
 				return
 			}
@@ -224,6 +202,59 @@ func TestValidatedBody(t *testing.T) {
 		invalidUserJSON, _ = json.Marshal(invalidUser)
 		response = http.Post("/validate-body", string(invalidUserJSON))
 		assert.Contains(t, response, "Must be at least 18")
+	})
+}
+
+func TestValidatedBodyWithPublicAPI(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Post("/validate-body-custom", func(call *govalin.Call) {
+			var user TestUser
+			
+			// Parse the body first
+			if err := call.ValidatedBody(&user).Get(); err != nil {
+				call.Error(err)
+				return
+			}
+			
+			// For complex validation that can't be done with built-in field validators,
+			// still use the validation package
+			nameValidator := validation.NewStringValidator().
+				Rule(validation.Required()).
+				Rule(validation.MinLength(2))
+			
+			if err := nameValidator.Validate(user.Name, "Name"); err != nil {
+				call.Error(err)
+				return
+			}
+			
+			emailValidator := validation.NewStringValidator().
+				Rule(validation.Required()).
+				Rule(validation.Email())
+			
+			if err := emailValidator.Validate(user.Email, "Email"); err != nil {
+				call.Error(err)
+				return
+			}
+			
+			ageValidator := validation.NewIntValidator().
+				Rule(validation.Min(18)).
+				Rule(validation.Max(100))
+			
+			if err := ageValidator.Validate(user.Age, "Age"); err != nil {
+				call.Error(err)
+				return
+			}
+			
+			call.JSON(map[string]interface{}{"message": "Custom validation passed", "user": user})
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		// Test valid user with custom validation
+		validUser := TestUser{Name: "Jane Smith", Email: "jane@example.com", Age: 30}
+		validUserJSON, _ := json.Marshal(validUser)
+		response := http.Post("/validate-body-custom", string(validUserJSON))
+		assert.Contains(t, response, "Custom validation passed")
 	})
 }
 
