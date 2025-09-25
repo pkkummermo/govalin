@@ -161,16 +161,36 @@ func TestValidatedBody(t *testing.T) {
 		app.Post("/validate-body", func(call *govalin.Call) {
 			var user TestUser
 			
-			// For now, simplified body validation - can be extended later
+			// Parse the body first
 			if err := call.ValidatedBody(&user).Get(); err != nil {
 				call.Error(err)
 				return
 			}
 			
-			// Validate individual fields after body parsing
-			if _, err := call.ValidatedQueryParam("validateName").Custom(func(string) bool {
-				return len(user.Name) >= 2
-			}, "Name must be at least 2 characters long").Get(); user.Name != "" && err != nil {
+			// Now validate the parsed user data using proper validation
+			nameValidator := govalin.NewStringValidator().
+				Rule(govalin.Required()).
+				Rule(govalin.MinLength(2))
+			
+			if err := nameValidator.Validate(user.Name, "Name"); err != nil {
+				call.Error(err)
+				return
+			}
+			
+			emailValidator := govalin.NewStringValidator().
+				Rule(govalin.Required()).
+				Rule(govalin.Email())
+			
+			if err := emailValidator.Validate(user.Email, "Email"); err != nil {
+				call.Error(err)
+				return
+			}
+			
+			ageValidator := govalin.NewIntValidator().
+				Rule(govalin.Min(18)).
+				Rule(govalin.Max(100))
+			
+			if err := ageValidator.Validate(user.Age, "Age"); err != nil {
 				call.Error(err)
 				return
 			}
@@ -185,6 +205,24 @@ func TestValidatedBody(t *testing.T) {
 		validUserJSON, _ := json.Marshal(validUser)
 		response := http.Post("/validate-body", string(validUserJSON))
 		assert.Contains(t, response, "Valid user data")
+
+		// Test invalid name (too short)
+		invalidUser := TestUser{Name: "J", Email: "john@example.com", Age: 25}
+		invalidUserJSON, _ := json.Marshal(invalidUser)
+		response = http.Post("/validate-body", string(invalidUserJSON))
+		assert.Contains(t, response, "Must be at least 2 characters long")
+
+		// Test invalid email
+		invalidUser = TestUser{Name: "John Doe", Email: "invalidemail", Age: 25}
+		invalidUserJSON, _ = json.Marshal(invalidUser)
+		response = http.Post("/validate-body", string(invalidUserJSON))
+		assert.Contains(t, response, "Must be a valid email address")
+
+		// Test invalid age
+		invalidUser = TestUser{Name: "John Doe", Email: "john@example.com", Age: 15}
+		invalidUserJSON, _ = json.Marshal(invalidUser)
+		response = http.Post("/validate-body", string(invalidUserJSON))
+		assert.Contains(t, response, "Must be at least 18")
 	})
 }
 
@@ -240,5 +278,39 @@ func TestChainingValidation(t *testing.T) {
 		// Test custom validation failure
 		response = http.Post("/validate-chain?username=john123&age=42", map[string]string{})
 		assert.Contains(t, response, "Age cannot be 42")
+	})
+}
+
+func TestPublicValidationAPI(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Post("/validate-public", func(call *govalin.Call) {
+			name := call.QueryParam("name")
+			
+			// Demonstrate using public validation API for custom scenarios
+			validator := govalin.NewStringValidator().
+				Rule(govalin.Required()).
+				Rule(govalin.MinLength(3)).
+				Rule(govalin.CustomString(func(s string) bool {
+					// Custom validation: name must start with uppercase
+					return len(s) > 0 && s[0] >= 'A' && s[0] <= 'Z'
+				}, "Name must start with an uppercase letter"))
+			
+			if err := validator.Validate(name, "name"); err != nil {
+				call.Error(err)
+				return
+			}
+			
+			call.JSON(map[string]string{"message": "Valid name", "name": name})
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		// Test valid input
+		response := http.Post("/validate-public?name=John", map[string]string{})
+		assert.Contains(t, response, "Valid name")
+
+		// Test custom validation failure
+		response = http.Post("/validate-public?name=john", map[string]string{})
+		assert.Contains(t, response, "Name must start with an uppercase letter")
 	})
 }
