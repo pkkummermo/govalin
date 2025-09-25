@@ -28,7 +28,7 @@ func TestValidatedQueryParam(t *testing.T) {
 				call.Error(err)
 				return
 			}
-			
+
 			call.JSON(map[string]string{"message": "Valid name", "name": name})
 		})
 
@@ -74,7 +74,7 @@ func TestValidatedPathParam(t *testing.T) {
 				call.Error(err)
 				return
 			}
-			
+
 			call.JSON(map[string]string{"message": "Valid username", "username": username})
 		})
 
@@ -102,7 +102,7 @@ func TestValidatedQueryParamAsInt(t *testing.T) {
 				call.Error(err)
 				return
 			}
-			
+
 			call.JSON(map[string]interface{}{"message": "Valid age", "age": age})
 		})
 
@@ -137,7 +137,7 @@ func TestValidatedFormParam(t *testing.T) {
 				call.Error(err)
 				return
 			}
-			
+
 			call.JSON(map[string]string{"message": "Valid email", "email": email})
 		})
 
@@ -161,19 +161,19 @@ func TestValidatedBody(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Post("/validate-body", func(call *govalin.Call) {
 			var user TestUser
-			
+
 			// Use generic validation methods on ValidatedBody - no validation package import needed!
 			err := call.ValidatedBody(&user).
 				ValidateField("Name").Required().MinLength(2).Get().
 				ValidateField("Email").Required().Email().Get().
 				ValidateField("Age").Min(18).Max(100).Get().
 				Get()
-			
+
 			if err != nil {
 				call.Error(err)
 				return
 			}
-			
+
 			call.JSON(map[string]interface{}{"message": "Valid user data", "user": user})
 		})
 
@@ -209,42 +209,42 @@ func TestValidatedBodyWithPublicAPI(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Post("/validate-body-custom", func(call *govalin.Call) {
 			var user TestUser
-			
+
 			// Parse the body first
 			if err := call.ValidatedBody(&user).Get(); err != nil {
 				call.Error(err)
 				return
 			}
-			
+
 			// For complex validation that can't be done with built-in field validators,
 			// still use the validation package
 			nameValidator := validation.NewStringValidator().
 				Rule(validation.Required()).
 				Rule(validation.MinLength(2))
-			
+
 			if err := nameValidator.Validate(user.Name, "Name"); err != nil {
 				call.Error(err)
 				return
 			}
-			
+
 			emailValidator := validation.NewStringValidator().
 				Rule(validation.Required()).
 				Rule(validation.Email())
-			
+
 			if err := emailValidator.Validate(user.Email, "Email"); err != nil {
 				call.Error(err)
 				return
 			}
-			
+
 			ageValidator := validation.NewIntValidator().
 				Rule(validation.Min(18)).
 				Rule(validation.Max(100))
-			
+
 			if err := ageValidator.Validate(user.Age, "Age"); err != nil {
 				call.Error(err)
 				return
 			}
-			
+
 			call.JSON(map[string]interface{}{"message": "Custom validation passed", "user": user})
 		})
 
@@ -280,7 +280,7 @@ func TestChainingValidation(t *testing.T) {
 				call.Error(err)
 				return
 			}
-			
+
 			age, err := call.ValidatedQueryParamAsInt("age").
 				Min(13).
 				Max(120).
@@ -292,11 +292,11 @@ func TestChainingValidation(t *testing.T) {
 				call.Error(err)
 				return
 			}
-			
+
 			call.JSON(map[string]interface{}{
-				"message": "Valid data", 
+				"message":  "Valid data",
 				"username": username,
-				"age": age,
+				"age":      age,
 			})
 		})
 
@@ -317,7 +317,7 @@ func TestPublicValidationAPI(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Post("/validate-public", func(call *govalin.Call) {
 			name := call.QueryParam("name")
-			
+
 			// Demonstrate using public validation API for custom scenarios
 			validator := validation.NewStringValidator().
 				Rule(validation.Required()).
@@ -326,12 +326,12 @@ func TestPublicValidationAPI(t *testing.T) {
 					// Custom validation: name must start with uppercase
 					return len(s) > 0 && s[0] >= 'A' && s[0] <= 'Z'
 				}, "Name must start with an uppercase letter"))
-			
+
 			if err := validator.Validate(name, "name"); err != nil {
 				call.Error(err)
 				return
 			}
-			
+
 			call.JSON(map[string]string{"message": "Valid name", "name": name})
 		})
 
@@ -351,7 +351,7 @@ func TestBodyValidatorCustom(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Post("/validate-body-custom-validator", func(call *govalin.Call) {
 			var user TestUser
-			
+
 			// Use Custom validation method on BodyValidator for type-safe validation
 			err := call.ValidatedBody(&user).
 				Custom(func(data interface{}) bool {
@@ -363,12 +363,12 @@ func TestBodyValidatorCustom(t *testing.T) {
 				ValidateField("Name").Required().MinLength(2).Get().
 				ValidateField("Email").Required().Email().Get().
 				Get()
-			
+
 			if err != nil {
 				call.Error(err)
 				return
 			}
-			
+
 			call.JSON(map[string]interface{}{"message": "Body custom validation passed", "user": user})
 		})
 
@@ -379,13 +379,13 @@ func TestBodyValidatorCustom(t *testing.T) {
 		validUserJSON, _ := json.Marshal(validUser)
 		response := http.Post("/validate-body-custom-validator", string(validUserJSON))
 		assert.Contains(t, response, "Body custom validation passed")
-		
+
 		// Test invalid user with custom body validation (InvalidUser name)
 		invalidUser := TestUser{Name: "InvalidUser", Email: "invalid@example.com", Age: 25}
 		invalidUserJSON, _ := json.Marshal(invalidUser)
 		response = http.Post("/validate-body-custom-validator", string(invalidUserJSON))
 		assert.Contains(t, response, "User validation failed: invalid user or under 18")
-		
+
 		// Test invalid user with custom body validation (under 18)
 		invalidUser = TestUser{Name: "ValidUser", Email: "valid@example.com", Age: 16}
 		invalidUserJSON, _ = json.Marshal(invalidUser)

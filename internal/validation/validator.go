@@ -25,8 +25,9 @@ func NewValidator[T any]() *Validator[T] {
 
 // Validate creates a new type-safe validator for the specified type T
 // Example usage:
-//   validator := validation.Validate[string]().Rule(validation.Required()).Rule(validation.MinLength(3))
-//   if err := validator.Validate(userInput, "username"); err != nil { ... }
+//
+//	validator := validation.Validate[string]().Rule(validation.Required()).Rule(validation.MinLength(3))
+//	if err := validator.Validate(userInput, "username"); err != nil { ... }
 func Validate[T any]() *Validator[T] {
 	return NewValidator[T]()
 }
@@ -171,9 +172,10 @@ func NewStructValidator() *StructValidator {
 
 // ValidateStruct creates a new struct validator
 // Example usage:
-//   validator := validation.ValidateStruct().Field("Name", func(v interface{}) *validation.Error {
-//       return validation.Validate[string]().Rule(validation.Required()).Validate(v.(string), "Name")
-//   })
+//
+//	validator := validation.ValidateStruct().Field("Name", func(v interface{}) *validation.Error {
+//	    return validation.Validate[string]().Rule(validation.Required()).Validate(v.(string), "Name")
+//	})
 func ValidateStruct() *StructValidator {
 	return NewStructValidator()
 }
@@ -208,7 +210,7 @@ func (sv *StructValidator) Validate(data interface{}) *Error {
 	for i := 0; i < v.NumField(); i++ {
 		field := t.Field(i)
 		fieldValue := v.Field(i)
-		
+
 		if validator, exists := sv.fields[field.Name]; exists {
 			if err := validator(fieldValue.Interface()); err != nil {
 				return err
@@ -226,7 +228,7 @@ func ValidateStringAsInt(value string, fieldName string, validator *Validator[in
 	if value == "" {
 		return nil // Let Required() handle empty strings
 	}
-	
+
 	intVal, err := strconv.Atoi(value)
 	if err != nil {
 		return NewError(NewErrorResponse(
@@ -234,6 +236,6 @@ func ValidateStringAsInt(value string, fieldName string, validator *Validator[in
 			NewParameterErrorDetail(fieldName, "Must be a valid integer"),
 		))
 	}
-	
+
 	return validator.Validate(intVal, fieldName)
 }

@@ -644,12 +644,12 @@ type StringValidator struct {
 	rules []func(string, string) error
 }
 
-// IntValidator provides a curryable integer validation interface  
+// IntValidator provides a curryable integer validation interface
 type IntValidator struct {
-	call    *Call
-	key     string
-	value   string
-	rules   []func(int, string) error
+	call  *Call
+	key   string
+	value string
+	rules []func(int, string) error
 }
 
 // BodyValidator provides validation for request body
@@ -895,7 +895,7 @@ func (v *IntValidator) Get() (int, error) {
 			validation.NewParameterErrorDetail(v.key, "Must be a valid integer"),
 		))
 	}
-	
+
 	// Then apply validation rules
 	for _, rule := range v.rules {
 		if err := rule(intVal, v.key); err != nil {
@@ -935,7 +935,7 @@ func (v *BodyValidator) Get() error {
 	if err := v.call.BodyAs(v.target); err != nil {
 		return err
 	}
-	
+
 	// Then apply validation rules
 	for _, rule := range v.rules {
 		if err := rule(v.target); err != nil {
@@ -970,7 +970,7 @@ func (f *BodyFieldValidator) Required() *BodyFieldValidator {
 				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
 			))
 		}
-		
+
 		if field.Kind() == reflect.String && strings.TrimSpace(field.String()) == "" {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
@@ -993,7 +993,7 @@ func (f *BodyFieldValidator) MinLength(min int) *BodyFieldValidator {
 				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
 			))
 		}
-		
+
 		if field.Kind() == reflect.String && len(field.String()) < min {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
@@ -1016,7 +1016,7 @@ func (f *BodyFieldValidator) MaxLength(max int) *BodyFieldValidator {
 				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
 			))
 		}
-		
+
 		if field.Kind() == reflect.String && len(field.String()) > max {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
@@ -1039,7 +1039,7 @@ func (f *BodyFieldValidator) Email() *BodyFieldValidator {
 				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
 			))
 		}
-		
+
 		if field.Kind() == reflect.String {
 			email := field.String()
 			if email != "" && !strings.Contains(email, "@") {
@@ -1065,7 +1065,7 @@ func (f *BodyFieldValidator) Min(min int) *BodyFieldValidator {
 				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
 			))
 		}
-		
+
 		if field.Kind() == reflect.Int && int(field.Int()) < min {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
@@ -1088,7 +1088,7 @@ func (f *BodyFieldValidator) Max(max int) *BodyFieldValidator {
 				validation.NewParameterErrorDetail(f.fieldName, "Field does not exist"),
 			))
 		}
-		
+
 		if field.Kind() == reflect.Int && int(field.Int()) > max {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
