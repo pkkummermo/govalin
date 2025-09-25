@@ -634,78 +634,298 @@ func (call *Call) Error(err error) {
 	).ErrorResponse)
 }
 
-// Validation methods that combine parameter retrieval with validation
+// Validation methods that return curryable validation objects
 
-// ValidatedQueryParam retrieves and validates a query parameter
-func (call *Call) ValidatedQueryParam(key string, validator *Validator[string]) (string, error) {
+// StringValidator provides a curryable string validation interface
+type StringValidator struct {
+	call  *Call
+	key   string
+	value string
+	rules []func(string, string) error
+}
+
+// IntValidator provides a curryable integer validation interface  
+type IntValidator struct {
+	call    *Call
+	key     string
+	value   string
+	rules   []func(int, string) error
+}
+
+// BodyValidator provides validation for request body
+type BodyValidator struct {
+	call   *Call
+	target interface{}
+	rules  []func(interface{}) error
+}
+
+// ValidatedQueryParam returns a curryable string validator for query parameters
+func (call *Call) ValidatedQueryParam(key string) *StringValidator {
 	value := call.QueryParam(key)
-	if err := validator.Validate(value, key); err != nil {
-		return "", err
+	return &StringValidator{
+		call:  call,
+		key:   key,
+		value: value,
+		rules: make([]func(string, string) error, 0),
 	}
-	return value, nil
 }
 
-// ValidatedPathParam retrieves and validates a path parameter
-func (call *Call) ValidatedPathParam(key string, validator *Validator[string]) (string, error) {
+// ValidatedPathParam returns a curryable string validator for path parameters
+func (call *Call) ValidatedPathParam(key string) *StringValidator {
 	value := call.PathParam(key)
-	if err := validator.Validate(value, key); err != nil {
-		return "", err
+	return &StringValidator{
+		call:  call,
+		key:   key,
+		value: value,
+		rules: make([]func(string, string) error, 0),
 	}
-	return value, nil
 }
 
-// ValidatedFormParam retrieves and validates a form parameter
-func (call *Call) ValidatedFormParam(key string, validator *Validator[string]) (string, error) {
+// ValidatedFormParam returns a curryable string validator for form parameters
+func (call *Call) ValidatedFormParam(key string) *StringValidator {
 	value, err := call.FormParam(key)
+	validator := &StringValidator{
+		call:  call,
+		key:   key,
+		value: value,
+		rules: make([]func(string, string) error, 0),
+	}
+	// If there's an error getting the form param, add it as a rule
 	if err != nil {
-		return "", err
+		validator.rules = append(validator.rules, func(_, _ string) error { return err })
 	}
-	if err := validator.Validate(value, key); err != nil {
-		return "", err
-	}
-	return value, nil
+	return validator
 }
 
-// ValidatedBody retrieves and validates the request body
-func (call *Call) ValidatedBody(target interface{}, validator *StructValidator) error {
-	if err := call.BodyAs(target); err != nil {
+// ValidatedQueryParamAsInt returns a curryable integer validator for query parameters
+func (call *Call) ValidatedQueryParamAsInt(key string) *IntValidator {
+	value := call.QueryParam(key)
+	return &IntValidator{
+		call:  call,
+		key:   key,
+		value: value,
+		rules: make([]func(int, string) error, 0),
+	}
+}
+
+// ValidatedPathParamAsInt returns a curryable integer validator for path parameters
+func (call *Call) ValidatedPathParamAsInt(key string) *IntValidator {
+	value := call.PathParam(key)
+	return &IntValidator{
+		call:  call,
+		key:   key,
+		value: value,
+		rules: make([]func(int, string) error, 0),
+	}
+}
+
+// ValidatedFormParamAsInt returns a curryable integer validator for form parameters
+func (call *Call) ValidatedFormParamAsInt(key string) *IntValidator {
+	value, err := call.FormParam(key)
+	validator := &IntValidator{
+		call:  call,
+		key:   key,
+		value: value,
+		rules: make([]func(int, string) error, 0),
+	}
+	// If there's an error getting the form param, add it as a rule
+	if err != nil {
+		validator.rules = append(validator.rules, func(_ int, _ string) error { return err })
+	}
+	return validator
+}
+
+// ValidatedBody returns a curryable body validator
+func (call *Call) ValidatedBody(target interface{}) *BodyValidator {
+	return &BodyValidator{
+		call:   call,
+		target: target,
+		rules:  make([]func(interface{}) error, 0),
+	}
+}
+
+// String validation rule methods
+
+// Required adds a required validation rule
+func (v *StringValidator) Required() *StringValidator {
+	v.rules = append(v.rules, func(value, fieldName string) error {
+		if strings.TrimSpace(value) == "" {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(fieldName, "This field is required"),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
+// MinLength adds a minimum length validation rule
+func (v *StringValidator) MinLength(min int) *StringValidator {
+	v.rules = append(v.rules, func(value, fieldName string) error {
+		if len(value) < min {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d characters long", min)),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
+// MaxLength adds a maximum length validation rule
+func (v *StringValidator) MaxLength(max int) *StringValidator {
+	v.rules = append(v.rules, func(value, fieldName string) error {
+		if len(value) > max {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d characters long", max)),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
+// Email adds an email validation rule
+func (v *StringValidator) Email() *StringValidator {
+	v.rules = append(v.rules, func(value, fieldName string) error {
+		if value != "" && !strings.Contains(value, "@") {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(fieldName, "Must be a valid email address"),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
+// Custom adds a custom validation rule for strings
+func (v *StringValidator) Custom(fn func(string) bool, message string) *StringValidator {
+	v.rules = append(v.rules, func(value, fieldName string) error {
+		if !fn(value) {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(fieldName, message),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
+// Get validates the string and returns it if valid
+func (v *StringValidator) Get() (string, error) {
+	for _, rule := range v.rules {
+		if err := rule(v.value, v.key); err != nil {
+			return "", err
+		}
+	}
+	return v.value, nil
+}
+
+// Integer validation rule methods
+
+// Min adds a minimum value validation rule for integers
+func (v *IntValidator) Min(min int) *IntValidator {
+	v.rules = append(v.rules, func(value int, fieldName string) error {
+		if value < min {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d", min)),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
+// Max adds a maximum value validation rule for integers
+func (v *IntValidator) Max(max int) *IntValidator {
+	v.rules = append(v.rules, func(value int, fieldName string) error {
+		if value > max {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d", max)),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
+// Range adds a range validation rule for integers
+func (v *IntValidator) Range(min, max int) *IntValidator {
+	v.rules = append(v.rules, func(value int, fieldName string) error {
+		if value < min || value > max {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be between %d and %d", min, max)),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
+// Custom adds a custom validation rule for integers
+func (v *IntValidator) Custom(fn func(int) bool, message string) *IntValidator {
+	v.rules = append(v.rules, func(value int, fieldName string) error {
+		if !fn(value) {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail(fieldName, message),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
+// Get validates the integer and returns it if valid
+func (v *IntValidator) Get() (int, error) {
+	// First try to convert string to int
+	intVal, err := strconv.Atoi(v.value)
+	if err != nil {
+		return 0, validation.NewError(validation.NewErrorResponse(
+			http.StatusBadRequest,
+			validation.NewParameterErrorDetail(v.key, "Must be a valid integer"),
+		))
+	}
+	
+	// Then apply validation rules
+	for _, rule := range v.rules {
+		if err := rule(intVal, v.key); err != nil {
+			return 0, err
+		}
+	}
+	return intVal, nil
+}
+
+// Body validation methods
+
+// Field adds field validation for body
+func (v *BodyValidator) Field(fieldName string, validator func(interface{}) error) *BodyValidator {
+	v.rules = append(v.rules, func(data interface{}) error {
+		return validator(data)
+	})
+	return v
+}
+
+// Get validates the body and returns error if invalid
+func (v *BodyValidator) Get() error {
+	// First unmarshal the body
+	if err := v.call.BodyAs(v.target); err != nil {
 		return err
 	}
-	if err := validator.Validate(target); err != nil {
-		return err
+	
+	// Then apply validation rules
+	for _, rule := range v.rules {
+		if err := rule(v.target); err != nil {
+			return err
+		}
 	}
 	return nil
-}
-
-// ValidatedQueryParamAsInt retrieves a query parameter, converts it to int, and validates it
-func (call *Call) ValidatedQueryParamAsInt(key string, validator *Validator[int]) (int, error) {
-	value := call.QueryParam(key)
-	if err := ValidateStringAsInt(value, key, validator); err != nil {
-		return 0, err
-	}
-	result, _ := strconv.Atoi(value) // We know this won't fail since ValidateStringAsInt passed
-	return result, nil
-}
-
-// ValidatedPathParamAsInt retrieves a path parameter, converts it to int, and validates it
-func (call *Call) ValidatedPathParamAsInt(key string, validator *Validator[int]) (int, error) {
-	value := call.PathParam(key)
-	if err := ValidateStringAsInt(value, key, validator); err != nil {
-		return 0, err
-	}
-	result, _ := strconv.Atoi(value) // We know this won't fail since ValidateStringAsInt passed
-	return result, nil
-}
-
-// ValidatedFormParamAsInt retrieves a form parameter, converts it to int, and validates it
-func (call *Call) ValidatedFormParamAsInt(key string, validator *Validator[int]) (int, error) {
-	value, err := call.FormParam(key)
-	if err != nil {
-		return 0, err
-	}
-	if err := ValidateStringAsInt(value, key, validator); err != nil {
-		return 0, err
-	}
-	result, _ := strconv.Atoi(value) // We know this won't fail since ValidateStringAsInt passed
-	return result, nil
 }
