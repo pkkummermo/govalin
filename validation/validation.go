@@ -80,8 +80,64 @@ func Custom[T any](fn func(T) bool, message string) validation.ValidationRule[T]
 	return validation.Custom(fn, message)
 }
 
+// TypedValidator provides a curryable typed validator
+type TypedValidator[T any] struct {
+	validator interface {
+		AddRule(func(interface{}) error)
+		Get() error
+	}
+	rules []func(T) (bool, string)
+}
+
+// WithTyped creates a curryable typed validator for type-safe custom validation
+func WithTyped[T any, V interface {
+	AddRule(func(interface{}) error)
+	Get() error
+}](v V) *TypedValidator[T] {
+	return &TypedValidator[T]{
+		validator: v,
+		rules:     make([]func(T) (bool, string), 0),
+	}
+}
+
+// Custom adds a type-safe custom validation rule that can be chained
+func (tv *TypedValidator[T]) Custom(validatorFn func(T) bool, message string) *TypedValidator[T] {
+	tv.rules = append(tv.rules, func(data T) (bool, string) {
+		return validatorFn(data), message
+	})
+	return tv
+}
+
+// Get executes all validation rules and returns any validation error
+func (tv *TypedValidator[T]) Get() error {
+	// Add all accumulated rules to the underlying validator
+	for _, rule := range tv.rules {
+		validatorFn := rule // Capture the rule in closure
+		tv.validator.AddRule(func(data interface{}) error {
+			typedData, ok := data.(*T)
+			if !ok {
+				return validation.NewError(validation.NewErrorResponse(
+					http.StatusBadRequest,
+					validation.NewParameterErrorDetail("body", "Type assertion failed"),
+				))
+			}
+			if valid, message := validatorFn(*typedData); !valid {
+				return validation.NewError(validation.NewErrorResponse(
+					http.StatusBadRequest,
+					validation.NewParameterErrorDetail("body", message),
+				))
+			}
+			return nil
+		})
+	}
+
+	// Execute the underlying validator
+	return tv.validator.Get()
+}
+
 // WithTypedCustom adds a type-safe custom validation rule for the entire body using a helper function
 // This function works with any type that has an AddRule method
+// Deprecated: Use WithTyped().Custom(...).Get() for curryable validation
 func WithTypedCustom[T any, V interface{ AddRule(func(interface{}) error) }](v V, validatorFn func(T) bool, message string) V {
 	v.AddRule(func(data interface{}) error {
 		typedData, ok := data.(*T)

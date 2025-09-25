@@ -2,6 +2,7 @@ package govalin_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/pkkummermo/govalin"
@@ -399,26 +400,32 @@ func TestBodyValidatorWithTypedCustom(t *testing.T) {
 		app.Post("/validate-typed-custom", func(call *govalin.Call) {
 			var user TestUser
 
-			// Use validation.WithTypedCustom for type-safe validation without manual type casting
-			validator := call.ValidatedBody(&user)
-			validator = validation.WithTypedCustom(validator, func(user TestUser) bool {
-				// Type-safe custom validation - no casting needed!
-				// Test complex business rule: name must not contain "banned" and email domain rules
-				if user.Name == "banned" {
-					return false
-				}
-				if user.Email == "admin@test.com" && user.Age < 21 {
-					return false // Admin emails require age 21+
-				}
-				return user.Age >= 13 // General minimum age requirement
-			}, "Custom business rule validation failed")
+			// Use validation.WithTyped for curryable type-safe validation without manual type casting
+			err := validation.WithTyped[TestUser](call.ValidatedBody(&user)).
+				Custom(func(user TestUser) bool {
+					// Type-safe custom validation - no casting needed!
+					// Test complex business rule: name must not contain "banned"
+					return user.Name != "banned"
+				}, "Name cannot be 'banned'").
+				Custom(func(user TestUser) bool {
+					// Chain another validation: email domain rules
+					if user.Email == "admin@test.com" && user.Age < 21 {
+						return false // Admin emails require age 21+
+					}
+					return true
+				}, "Admin emails require age 21 or higher").
+				Custom(func(user TestUser) bool {
+					// Chain another validation: general minimum age requirement
+					return user.Age >= 13
+				}, "Must be at least 13 years old").
+				Get()
 
-			if err := validator.Get(); err != nil {
+			if err != nil {
 				call.Error(err)
 				return
 			}
 
-			call.JSON(map[string]string{"message": "Typed custom validation passed"})
+			call.JSON(map[string]string{"message": "Curryable typed custom validation passed"})
 		})
 
 		return app
@@ -427,30 +434,84 @@ func TestBodyValidatorWithTypedCustom(t *testing.T) {
 		validUser := TestUser{Name: "ValidUser", Email: "user@example.com", Age: 25}
 		validUserJSON, _ := json.Marshal(validUser)
 		response := http.Post("/validate-typed-custom", string(validUserJSON))
-		assert.Contains(t, response, "Typed custom validation passed")
+		assert.Contains(t, response, "Curryable typed custom validation passed")
 
 		// Test banned user name
 		bannedUser := TestUser{Name: "banned", Email: "banned@example.com", Age: 25}
 		bannedUserJSON, _ := json.Marshal(bannedUser)
 		response = http.Post("/validate-typed-custom", string(bannedUserJSON))
-		assert.Contains(t, response, "Custom business rule validation failed")
+		assert.Contains(t, response, "Name cannot be 'banned'")
 
 		// Test admin email with insufficient age
 		adminUser := TestUser{Name: "AdminUser", Email: "admin@test.com", Age: 18}
 		adminUserJSON, _ := json.Marshal(adminUser)
 		response = http.Post("/validate-typed-custom", string(adminUserJSON))
-		assert.Contains(t, response, "Custom business rule validation failed")
+		assert.Contains(t, response, "Admin emails require age 21 or higher")
 
 		// Test admin email with sufficient age
 		validAdminUser := TestUser{Name: "AdminUser", Email: "admin@test.com", Age: 22}
 		validAdminUserJSON, _ := json.Marshal(validAdminUser)
 		response = http.Post("/validate-typed-custom", string(validAdminUserJSON))
-		assert.Contains(t, response, "Typed custom validation passed")
+		assert.Contains(t, response, "Curryable typed custom validation passed")
 
 		// Test under minimum age
 		youngUser := TestUser{Name: "YoungUser", Email: "young@example.com", Age: 10}
 		youngUserJSON, _ := json.Marshal(youngUser)
 		response = http.Post("/validate-typed-custom", string(youngUserJSON))
-		assert.Contains(t, response, "Custom business rule validation failed")
+		assert.Contains(t, response, "Must be at least 13 years old")
+	})
+}
+
+func TestCurryableTypedCustomValidation(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Post("/validate-curryable-typed", func(call *govalin.Call) {
+			var user TestUser
+
+			// Demonstrate the curryable API: WithTyped().Custom(...).Custom(...).Custom(...).Get()
+			err := validation.WithTyped[TestUser](call.ValidatedBody(&user)).
+				Custom(func(u TestUser) bool {
+					return len(u.Name) >= 2
+				}, "Name must be at least 2 characters").
+				Custom(func(u TestUser) bool {
+					return u.Age >= 18
+				}, "Must be at least 18 years old").
+				Custom(func(u TestUser) bool {
+					return strings.Contains(u.Email, "@")
+				}, "Email must contain @ symbol").
+				Get()
+
+			if err != nil {
+				call.Error(err)
+				return
+			}
+
+			call.JSON(map[string]string{"message": "All curryable validations passed"})
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		// Test all validations pass
+		validUser := TestUser{Name: "John", Email: "john@example.com", Age: 25}
+		validUserJSON, _ := json.Marshal(validUser)
+		response := http.Post("/validate-curryable-typed", string(validUserJSON))
+		assert.Contains(t, response, "All curryable validations passed")
+
+		// Test first validation fails (name too short)
+		invalidUser := TestUser{Name: "A", Email: "a@example.com", Age: 25}
+		invalidUserJSON, _ := json.Marshal(invalidUser)
+		response = http.Post("/validate-curryable-typed", string(invalidUserJSON))
+		assert.Contains(t, response, "Name must be at least 2 characters")
+
+		// Test second validation fails (age too low)
+		invalidUser = TestUser{Name: "Alice", Email: "alice@example.com", Age: 16}
+		invalidUserJSON, _ = json.Marshal(invalidUser)
+		response = http.Post("/validate-curryable-typed", string(invalidUserJSON))
+		assert.Contains(t, response, "Must be at least 18 years old")
+
+		// Test third validation fails (no @ in email)
+		invalidUser = TestUser{Name: "Bob", Email: "bobexample.com", Age: 25}
+		invalidUserJSON, _ = json.Marshal(invalidUser)
+		response = http.Post("/validate-curryable-typed", string(invalidUserJSON))
+		assert.Contains(t, response, "Email must contain @ symbol")
 	})
 }
