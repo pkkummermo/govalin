@@ -1,6 +1,10 @@
 package validation
 
-import "github.com/pkkummermo/govalin/internal/validation"
+import (
+	"net/http"
+
+	"github.com/pkkummermo/govalin/internal/validation"
+)
 
 // Validation types exposed without problematic generic type aliases
 
@@ -74,4 +78,26 @@ func Validate[T any]() *validation.Validator[T] {
 // Custom creates a custom validation rule for any type T - use with caution
 func Custom[T any](fn func(T) bool, message string) validation.ValidationRule[T] {
 	return validation.Custom(fn, message)
+}
+
+// WithTypedCustom adds a type-safe custom validation rule for the entire body using a helper function
+// This function works with any type that has an AddRule method
+func WithTypedCustom[T any, V interface{ AddRule(func(interface{}) error) }](v V, validatorFn func(T) bool, message string) V {
+	v.AddRule(func(data interface{}) error {
+		typedData, ok := data.(*T)
+		if !ok {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail("body", "Type assertion failed"),
+			))
+		}
+		if !validatorFn(*typedData) {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail("body", message),
+			))
+		}
+		return nil
+	})
+	return v
 }

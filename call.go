@@ -915,31 +915,15 @@ func (v *BodyValidator) Field(fieldName string, validator func(interface{}) erro
 	return v
 }
 
+// AddRule adds a validation rule to the body validator (implements interface for validation package)
+func (v *BodyValidator) AddRule(rule func(interface{}) error) {
+	v.rules = append(v.rules, rule)
+}
+
 // Custom adds a custom validation rule for the entire body with type safety
 func (v *BodyValidator) Custom(validatorFn func(interface{}) bool, message string) *BodyValidator {
 	v.rules = append(v.rules, func(data interface{}) error {
 		if !validatorFn(data) {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail("body", message),
-			))
-		}
-		return nil
-	})
-	return v
-}
-
-// WithTypedCustom adds a type-safe custom validation rule for the entire body using a helper function
-func WithTypedCustom[T any](v *BodyValidator, validatorFn func(T) bool, message string) *BodyValidator {
-	v.rules = append(v.rules, func(data interface{}) error {
-		typedData, ok := data.(*T)
-		if !ok {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail("body", "Type assertion failed"),
-			))
-		}
-		if !validatorFn(*typedData) {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
 				validation.NewParameterErrorDetail("body", message),

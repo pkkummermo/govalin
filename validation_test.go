@@ -352,9 +352,9 @@ func TestBodyValidatorCustom(t *testing.T) {
 		app.Post("/validate-body-custom-validator", func(call *govalin.Call) {
 			var user TestUser
 
-			// Use govalin.WithTypedCustom for type-safe validation without manual type casting
+			// Use validation.WithTypedCustom for type-safe validation without manual type casting
 			validator := call.ValidatedBody(&user)
-			validator = govalin.WithTypedCustom(validator, func(user TestUser) bool {
+			validator = validation.WithTypedCustom(validator, func(user TestUser) bool {
 				// Type-safe custom validation on the entire body - no casting needed!
 				return user.Name != "InvalidUser" && user.Age >= 18
 			}, "User validation failed: invalid user or under 18")
@@ -399,9 +399,9 @@ func TestBodyValidatorWithTypedCustom(t *testing.T) {
 		app.Post("/validate-typed-custom", func(call *govalin.Call) {
 			var user TestUser
 
-			// Use WithTypedCustom for type-safe validation without manual type casting
+			// Use validation.WithTypedCustom for type-safe validation without manual type casting
 			validator := call.ValidatedBody(&user)
-			validator = govalin.WithTypedCustom(validator, func(user TestUser) bool {
+			validator = validation.WithTypedCustom(validator, func(user TestUser) bool {
 				// Type-safe custom validation - no casting needed!
 				// Test complex business rule: name must not contain "banned" and email domain rules
 				if user.Name == "banned" {
