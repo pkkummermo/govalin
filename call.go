@@ -929,6 +929,27 @@ func (v *BodyValidator) Custom(validatorFn func(interface{}) bool, message strin
 	return v
 }
 
+// WithTypedCustom adds a type-safe custom validation rule for the entire body using a helper function
+func WithTypedCustom[T any](v *BodyValidator, validatorFn func(T) bool, message string) *BodyValidator {
+	v.rules = append(v.rules, func(data interface{}) error {
+		typedData, ok := data.(*T)
+		if !ok {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail("body", "Type assertion failed"),
+			))
+		}
+		if !validatorFn(*typedData) {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail("body", message),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
 // Get validates the body and returns error if invalid
 func (v *BodyValidator) Get() error {
 	// First unmarshal the body
