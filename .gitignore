@@ -1,0 +1,21 @@
+# Example files (not to be committed)
+example_*.go
+
+# Temporary files
+/tmp/
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories (uncomment if storing vendor directory)
+# vendor/
