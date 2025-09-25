@@ -915,6 +915,20 @@ func (v *BodyValidator) Field(fieldName string, validator func(interface{}) erro
 	return v
 }
 
+// Custom adds a custom validation rule for the entire body with type safety
+func (v *BodyValidator) Custom(validatorFn func(interface{}) bool, message string) *BodyValidator {
+	v.rules = append(v.rules, func(data interface{}) error {
+		if !validatorFn(data) {
+			return validation.NewError(validation.NewErrorResponse(
+				http.StatusBadRequest,
+				validation.NewParameterErrorDetail("body", message),
+			))
+		}
+		return nil
+	})
+	return v
+}
+
 // Get validates the body and returns error if invalid
 func (v *BodyValidator) Get() error {
 	// First unmarshal the body
