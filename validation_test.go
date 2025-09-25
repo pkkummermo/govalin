@@ -346,3 +346,50 @@ func TestPublicValidationAPI(t *testing.T) {
 		assert.Contains(t, response, "Name must start with an uppercase letter")
 	})
 }
+
+func TestBodyValidatorCustom(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Post("/validate-body-custom-validator", func(call *govalin.Call) {
+			var user TestUser
+			
+			// Use Custom validation method on BodyValidator for type-safe validation
+			err := call.ValidatedBody(&user).
+				Custom(func(data interface{}) bool {
+					// Type-safe custom validation on the entire body
+					user := data.(*TestUser)
+					// Custom business rule: Name and email domain must match certain criteria
+					return user.Name != "InvalidUser" && user.Age >= 18
+				}, "User validation failed: invalid user or under 18").
+				ValidateField("Name").Required().MinLength(2).Get().
+				ValidateField("Email").Required().Email().Get().
+				Get()
+			
+			if err != nil {
+				call.Error(err)
+				return
+			}
+			
+			call.JSON(map[string]interface{}{"message": "Body custom validation passed", "user": user})
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		// Test valid user with custom body validation
+		validUser := TestUser{Name: "ValidUser", Email: "valid@example.com", Age: 25}
+		validUserJSON, _ := json.Marshal(validUser)
+		response := http.Post("/validate-body-custom-validator", string(validUserJSON))
+		assert.Contains(t, response, "Body custom validation passed")
+		
+		// Test invalid user with custom body validation (InvalidUser name)
+		invalidUser := TestUser{Name: "InvalidUser", Email: "invalid@example.com", Age: 25}
+		invalidUserJSON, _ := json.Marshal(invalidUser)
+		response = http.Post("/validate-body-custom-validator", string(invalidUserJSON))
+		assert.Contains(t, response, "User validation failed: invalid user or under 18")
+		
+		// Test invalid user with custom body validation (under 18)
+		invalidUser = TestUser{Name: "ValidUser", Email: "valid@example.com", Age: 16}
+		invalidUserJSON, _ = json.Marshal(invalidUser)
+		response = http.Post("/validate-body-custom-validator", string(invalidUserJSON))
+		assert.Contains(t, response, "User validation failed: invalid user or under 18")
+	})
+}
