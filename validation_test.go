@@ -352,14 +352,14 @@ func TestBodyValidatorCustom(t *testing.T) {
 		app.Post("/validate-body-custom-validator", func(call *govalin.Call) {
 			var user TestUser
 
-			// Use Custom validation method on BodyValidator for type-safe validation
-			err := call.ValidatedBody(&user).
-				Custom(func(data interface{}) bool {
-					// Type-safe custom validation on the entire body
-					user := data.(*TestUser)
-					// Custom business rule: Name and email domain must match certain criteria
-					return user.Name != "InvalidUser" && user.Age >= 18
-				}, "User validation failed: invalid user or under 18").
+			// Use govalin.WithTypedCustom for type-safe validation without manual type casting
+			validator := call.ValidatedBody(&user)
+			validator = govalin.WithTypedCustom(validator, func(user TestUser) bool {
+				// Type-safe custom validation on the entire body - no casting needed!
+				return user.Name != "InvalidUser" && user.Age >= 18
+			}, "User validation failed: invalid user or under 18")
+
+			err := validator.
 				ValidateField("Name").Required().MinLength(2).Get().
 				ValidateField("Email").Required().Email().Get().
 				Get()
@@ -391,5 +391,66 @@ func TestBodyValidatorCustom(t *testing.T) {
 		invalidUserJSON, _ = json.Marshal(invalidUser)
 		response = http.Post("/validate-body-custom-validator", string(invalidUserJSON))
 		assert.Contains(t, response, "User validation failed: invalid user or under 18")
+	})
+}
+
+func TestBodyValidatorWithTypedCustom(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Post("/validate-typed-custom", func(call *govalin.Call) {
+			var user TestUser
+
+			// Use WithTypedCustom for type-safe validation without manual type casting
+			validator := call.ValidatedBody(&user)
+			validator = govalin.WithTypedCustom(validator, func(user TestUser) bool {
+				// Type-safe custom validation - no casting needed!
+				// Test complex business rule: name must not contain "banned" and email domain rules
+				if user.Name == "banned" {
+					return false
+				}
+				if user.Email == "admin@test.com" && user.Age < 21 {
+					return false // Admin emails require age 21+
+				}
+				return user.Age >= 13 // General minimum age requirement
+			}, "Custom business rule validation failed")
+
+			if err := validator.Get(); err != nil {
+				call.Error(err)
+				return
+			}
+
+			call.JSON(map[string]string{"message": "Typed custom validation passed"})
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		// Test valid user
+		validUser := TestUser{Name: "ValidUser", Email: "user@example.com", Age: 25}
+		validUserJSON, _ := json.Marshal(validUser)
+		response := http.Post("/validate-typed-custom", string(validUserJSON))
+		assert.Contains(t, response, "Typed custom validation passed")
+
+		// Test banned user name
+		bannedUser := TestUser{Name: "banned", Email: "banned@example.com", Age: 25}
+		bannedUserJSON, _ := json.Marshal(bannedUser)
+		response = http.Post("/validate-typed-custom", string(bannedUserJSON))
+		assert.Contains(t, response, "Custom business rule validation failed")
+
+		// Test admin email with insufficient age
+		adminUser := TestUser{Name: "AdminUser", Email: "admin@test.com", Age: 18}
+		adminUserJSON, _ := json.Marshal(adminUser)
+		response = http.Post("/validate-typed-custom", string(adminUserJSON))
+		assert.Contains(t, response, "Custom business rule validation failed")
+
+		// Test admin email with sufficient age
+		validAdminUser := TestUser{Name: "AdminUser", Email: "admin@test.com", Age: 22}
+		validAdminUserJSON, _ := json.Marshal(validAdminUser)
+		response = http.Post("/validate-typed-custom", string(validAdminUserJSON))
+		assert.Contains(t, response, "Typed custom validation passed")
+
+		// Test under minimum age
+		youngUser := TestUser{Name: "YoungUser", Email: "young@example.com", Age: 10}
+		youngUserJSON, _ := json.Marshal(youngUser)
+		response = http.Post("/validate-typed-custom", string(youngUserJSON))
+		assert.Contains(t, response, "Custom business rule validation failed")
 	})
 }
