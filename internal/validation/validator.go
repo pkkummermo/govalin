@@ -64,12 +64,12 @@ func Required() ValidationRule[string] {
 }
 
 // MinLength validates minimum string length.
-func MinLength(min int) ValidationRule[string] {
+func MinLength(minimum int) ValidationRule[string] {
 	return func(value string, fieldName string) *Error {
-		if len(value) < min {
+		if len(value) < minimum {
 			return NewError(NewErrorResponse(
 				http.StatusBadRequest,
-				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d characters long", min)),
+				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d characters long", minimum)),
 			))
 		}
 		return nil
@@ -77,12 +77,12 @@ func MinLength(min int) ValidationRule[string] {
 }
 
 // MaxLength validates maximum string length.
-func MaxLength(max int) ValidationRule[string] {
+func MaxLength(maximum int) ValidationRule[string] {
 	return func(value string, fieldName string) *Error {
-		if len(value) > max {
+		if len(value) > maximum {
 			return NewError(NewErrorResponse(
 				http.StatusBadRequest,
-				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d characters long", max)),
+				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d characters long", maximum)),
 			))
 		}
 		return nil
@@ -105,12 +105,12 @@ func Email() ValidationRule[string] {
 // Integer validation rules
 
 // Min validates minimum integer value.
-func Min(min int) ValidationRule[int] {
+func Min(minimum int) ValidationRule[int] {
 	return func(value int, fieldName string) *Error {
-		if value < min {
+		if value < minimum {
 			return NewError(NewErrorResponse(
 				http.StatusBadRequest,
-				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d", min)),
+				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d", minimum)),
 			))
 		}
 		return nil
@@ -118,12 +118,12 @@ func Min(min int) ValidationRule[int] {
 }
 
 // Max validates maximum integer value.
-func Max(max int) ValidationRule[int] {
+func Max(maximum int) ValidationRule[int] {
 	return func(value int, fieldName string) *Error {
-		if value > max {
+		if value > maximum {
 			return NewError(NewErrorResponse(
 				http.StatusBadRequest,
-				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d", max)),
+				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d", maximum)),
 			))
 		}
 		return nil
@@ -131,12 +131,12 @@ func Max(max int) ValidationRule[int] {
 }
 
 // Range validates integer is within range.
-func Range(min, max int) ValidationRule[int] {
+func Range(minimum, maximum int) ValidationRule[int] {
 	return func(value int, fieldName string) *Error {
-		if value < min || value > max {
+		if value < minimum || value > maximum {
 			return NewError(NewErrorResponse(
 				http.StatusBadRequest,
-				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be between %d and %d", min, max)),
+				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be between %d and %d", minimum, maximum)),
 			))
 		}
 		return nil
