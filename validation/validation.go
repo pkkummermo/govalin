@@ -28,47 +28,47 @@ func NewStructValidator() *validation.StructValidator {
 // Validation rule constructors
 
 // Required validates that a string is not empty.
-func Required() validation.ValidationRule[string] {
+func Required() validation.Rule[string] {
 	return validation.Required()
 }
 
 // MinLength validates minimum string length.
-func MinLength(minimum int) validation.ValidationRule[string] {
+func MinLength(minimum int) validation.Rule[string] {
 	return validation.MinLength(minimum)
 }
 
 // MaxLength validates maximum string length.
-func MaxLength(maximum int) validation.ValidationRule[string] {
+func MaxLength(maximum int) validation.Rule[string] {
 	return validation.MaxLength(maximum)
 }
 
 // Email validates email format (simple validation).
-func Email() validation.ValidationRule[string] {
+func Email() validation.Rule[string] {
 	return validation.Email()
 }
 
 // Min validates minimum integer value.
-func Min(minimum int) validation.ValidationRule[int] {
+func Min(minimum int) validation.Rule[int] {
 	return validation.Min(minimum)
 }
 
 // Max validates maximum integer value.
-func Max(maximum int) validation.ValidationRule[int] {
+func Max(maximum int) validation.Rule[int] {
 	return validation.Max(maximum)
 }
 
 // Range validates integer is within range.
-func Range(minimum, maximum int) validation.ValidationRule[int] {
+func Range(minimum, maximum int) validation.Rule[int] {
 	return validation.Range(minimum, maximum)
 }
 
 // CustomString allows defining custom validation logic for strings.
-func CustomString(fn func(string) bool, message string) validation.ValidationRule[string] {
+func CustomString(fn func(string) bool, message string) validation.Rule[string] {
 	return validation.Custom(fn, message)
 }
 
 // CustomInt allows defining custom validation logic for integers.
-func CustomInt(fn func(int) bool, message string) validation.ValidationRule[int] {
+func CustomInt(fn func(int) bool, message string) validation.Rule[int] {
 	return validation.Custom(fn, message)
 }
 
@@ -78,7 +78,7 @@ func Validate[T any]() *validation.Validator[T] {
 }
 
 // Custom creates a custom validation rule for any type T - use with caution.
-func Custom[T any](fn func(T) bool, message string) validation.ValidationRule[T] {
+func Custom[T any](fn func(T) bool, message string) validation.Rule[T] {
 	return validation.Custom(fn, message)
 }
 

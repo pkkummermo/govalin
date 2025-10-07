@@ -8,18 +8,18 @@ import (
 	"strings"
 )
 
-// ValidationRule represents a single validation rule.
-type ValidationRule[T any] func(value T, fieldName string) *Error
+// Rule represents a single validation rule.
+type Rule[T any] func(value T, fieldName string) *Error
 
 // Validator provides type-safe validation for various data types.
 type Validator[T any] struct {
-	rules []ValidationRule[T]
+	rules []Rule[T]
 }
 
 // NewValidator creates a new type-safe validator.
 func NewValidator[T any]() *Validator[T] {
 	return &Validator[T]{
-		rules: make([]ValidationRule[T], 0),
+		rules: make([]Rule[T], 0),
 	}
 }
 
@@ -33,7 +33,7 @@ func Validate[T any]() *Validator[T] {
 }
 
 // Rule adds a validation rule to the validator (currying/chaining).
-func (v *Validator[T]) Rule(rule ValidationRule[T]) *Validator[T] {
+func (v *Validator[T]) Rule(rule Rule[T]) *Validator[T] {
 	v.rules = append(v.rules, rule)
 	return v
 }
@@ -51,7 +51,7 @@ func (v *Validator[T]) Validate(value T, fieldName string) *Error {
 // String validation rules
 
 // Required validates that a string is not empty.
-func Required() ValidationRule[string] {
+func Required() Rule[string] {
 	return func(value string, fieldName string) *Error {
 		if strings.TrimSpace(value) == "" {
 			return NewError(NewErrorResponse(
@@ -64,7 +64,7 @@ func Required() ValidationRule[string] {
 }
 
 // MinLength validates minimum string length.
-func MinLength(minimum int) ValidationRule[string] {
+func MinLength(minimum int) Rule[string] {
 	return func(value string, fieldName string) *Error {
 		if len(value) < minimum {
 			return NewError(NewErrorResponse(
@@ -77,7 +77,7 @@ func MinLength(minimum int) ValidationRule[string] {
 }
 
 // MaxLength validates maximum string length.
-func MaxLength(maximum int) ValidationRule[string] {
+func MaxLength(maximum int) Rule[string] {
 	return func(value string, fieldName string) *Error {
 		if len(value) > maximum {
 			return NewError(NewErrorResponse(
@@ -90,7 +90,7 @@ func MaxLength(maximum int) ValidationRule[string] {
 }
 
 // Email validates email format (simple validation).
-func Email() ValidationRule[string] {
+func Email() Rule[string] {
 	return func(value string, fieldName string) *Error {
 		if value != "" && !strings.Contains(value, "@") {
 			return NewError(NewErrorResponse(
@@ -105,7 +105,7 @@ func Email() ValidationRule[string] {
 // Integer validation rules
 
 // Min validates minimum integer value.
-func Min(minimum int) ValidationRule[int] {
+func Min(minimum int) Rule[int] {
 	return func(value int, fieldName string) *Error {
 		if value < minimum {
 			return NewError(NewErrorResponse(
@@ -118,7 +118,7 @@ func Min(minimum int) ValidationRule[int] {
 }
 
 // Max validates maximum integer value.
-func Max(maximum int) ValidationRule[int] {
+func Max(maximum int) Rule[int] {
 	return func(value int, fieldName string) *Error {
 		if value > maximum {
 			return NewError(NewErrorResponse(
@@ -131,7 +131,7 @@ func Max(maximum int) ValidationRule[int] {
 }
 
 // Range validates integer is within range.
-func Range(minimum, maximum int) ValidationRule[int] {
+func Range(minimum, maximum int) Rule[int] {
 	return func(value int, fieldName string) *Error {
 		if value < minimum || value > maximum {
 			return NewError(NewErrorResponse(
@@ -146,7 +146,7 @@ func Range(minimum, maximum int) ValidationRule[int] {
 // Generic validation rules
 
 // Custom allows defining custom validation logic.
-func Custom[T any](fn func(T) bool, message string) ValidationRule[T] {
+func Custom[T any](fn func(T) bool, message string) Rule[T] {
 	return func(value T, fieldName string) *Error {
 		if !fn(value) {
 			return NewError(NewErrorResponse(

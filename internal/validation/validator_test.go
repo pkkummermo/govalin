@@ -383,10 +383,14 @@ func TestValidateStruct(t *testing.T) {
 func TestStructValidatorField(t *testing.T) {
 	validator := validation.NewStructValidator().
 		Field("Name", func(v interface{}) *validation.Error {
-			return validation.Validate[string]().Rule(validation.Required()).Validate(v.(string), "Name")
+			//nolint:errcheck // This is a test helper that returns errors
+			return validation.Validate[string]().Rule(validation.Required()).
+				Validate(v.(string), "Name")
 		}).
 		Field("Age", func(v interface{}) *validation.Error {
-			return validation.Validate[int]().Rule(validation.Min(18)).Validate(v.(int), "Age")
+			//nolint:errcheck // This is a test helper that returns errors
+			return validation.Validate[int]().Rule(validation.Min(18)).
+				Validate(v.(int), "Age")
 		})
 
 	// Test that fields can be validated
@@ -444,13 +448,19 @@ func TestStructValidatorValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			validator := validation.ValidateStruct().
 				Field("Name", func(v interface{}) *validation.Error {
-					return validation.Validate[string]().Rule(validation.Required()).Validate(v.(string), "Name")
+					//nolint:errcheck // This is a test helper that returns errors
+					return validation.Validate[string]().Rule(validation.Required()).
+						Validate(v.(string), "Name")
 				}).
 				Field("Age", func(v interface{}) *validation.Error {
-					return validation.Validate[int]().Rule(validation.Min(18)).Validate(v.(int), "Age")
+					//nolint:errcheck // This is a test helper that returns errors
+					return validation.Validate[int]().Rule(validation.Min(18)).
+						Validate(v.(int), "Age")
 				}).
 				Field("Email", func(v interface{}) *validation.Error {
-					return validation.Validate[string]().Rule(validation.Email()).Validate(v.(string), "Email")
+					//nolint:errcheck // This is a test helper that returns errors
+					return validation.Validate[string]().Rule(validation.Email()).
+						Validate(v.(string), "Email")
 				})
 
 			err := validator.Validate(tt.data)
@@ -483,7 +493,9 @@ func TestStructValidatorValidateStructValue(t *testing.T) {
 	// Test with struct value (not pointer)
 	validator := validation.ValidateStruct().
 		Field("Name", func(v interface{}) *validation.Error {
-			return validation.Validate[string]().Rule(validation.Required()).Validate(v.(string), "Name")
+			//nolint:errcheck // This is a test helper that returns errors
+			return validation.Validate[string]().Rule(validation.Required()).
+				Validate(v.(string), "Name")
 		})
 
 	data := TestStruct{Name: "John", Age: 25}

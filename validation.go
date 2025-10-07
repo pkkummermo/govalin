@@ -192,22 +192,14 @@ func (v *IntValidator) Get() (int, error) {
 
 	// Then apply validation rules
 	for _, rule := range v.rules {
-		if err := rule(intVal, v.key); err != nil {
-			return 0, err
+		if errRule := rule(intVal, v.key); errRule != nil {
+			return 0, errRule
 		}
 	}
 	return intVal, nil
 }
 
 // Body validation methods
-
-// Field adds field validation for body.
-func (v *BodyValidator) Field(_ string, validator func(interface{}) error) *BodyValidator {
-	v.rules = append(v.rules, func(data interface{}) error {
-		return validator(data)
-	})
-	return v
-}
 
 // AddRule adds a validation rule to the body validator (implements interface for validation package).
 func (v *BodyValidator) AddRule(rule func(interface{}) error) {
