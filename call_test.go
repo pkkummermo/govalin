@@ -213,7 +213,12 @@ func TestSession(t *testing.T) {
 			config.EnableSessions()
 		}).
 			Get("/get", func(call *govalin.Call) {
-				call.Text(call.SessionAttrOrDefault("test", "notGovalin").(string))
+				sessionVal, ok := call.SessionAttrOrDefault("test", "notGovalin").(string)
+			if !ok {
+				call.Text("notGovalin")
+				return
+			}
+			call.Text(sessionVal)
 			}).
 			Get("/set", func(call *govalin.Call) {
 				_, err := call.SessionAttr("test", "govalin")

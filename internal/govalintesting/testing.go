@@ -302,6 +302,13 @@ func freePort() (uint16, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer l.Close()
-	return uint16(l.Addr().(*net.TCPAddr).Port), nil //nolint: gosec // Ports dont go higher than 65535
+	defer func() {
+		_ = l.Close() // Ignore close errors in test helper
+	}()
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, fmt.Errorf("failed to get TCP address")
+	}
+	port := tcpAddr.Port
+	return uint16(port), nil //nolint:gosec // Port values are always within uint16 range
 }

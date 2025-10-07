@@ -2,13 +2,11 @@
 
 # Ref: https://gist.github.com/maratori/47a4d00457a92aa426dbd48a18776322
 
-## Golden config for golangci-lint v2.5.0
+## Golden config for golangci-lint
 #
 # This is the best config for golangci-lint based on my experience and opinion.
 # It is very strict, but not extremely strict.
 # Feel free to adopt and change it for your needs.
-
-version: 2
 
 run:
   # Timeout for analysis, e.g. 30s, 5m.
