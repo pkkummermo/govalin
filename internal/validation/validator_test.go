@@ -1,34 +1,34 @@
-package validation
+package validation_test
 
 import (
 	"net/http"
 	"testing"
 
+	"github.com/pkkummermo/govalin/internal/validation"
 	"github.com/stretchr/testify/assert"
 )
 
 // Test NewValidator and Validate functions.
 func TestNewValidator(t *testing.T) {
-	validator := NewValidator[string]()
+	validator := validation.NewValidator[string]()
 	assert.NotNil(t, validator)
-	assert.NotNil(t, validator.rules)
-	assert.Equal(t, 0, len(validator.rules))
 }
 
 func TestValidate(t *testing.T) {
-	validator := Validate[string]()
+	validator := validation.Validate[string]()
 	assert.NotNil(t, validator)
-	assert.NotNil(t, validator.rules)
 }
 
 // Test Rule chaining.
 func TestValidatorRuleChaining(t *testing.T) {
-	validator := NewValidator[string]().
-		Rule(Required()).
-		Rule(MinLength(3)).
-		Rule(MaxLength(10))
+	validator := validation.NewValidator[string]().
+		Rule(validation.Required()).
+		Rule(validation.MinLength(3)).
+		Rule(validation.MaxLength(10))
 
-	assert.Equal(t, 3, len(validator.rules))
+	// Test that chaining works by validating
+	err := validator.Validate("test", "field")
+	assert.Nil(t, err)
 }
 
 // Test string validation rules.
@@ -47,7 +47,7 @@ func TestRequired(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator[string]().Rule(Required())
+			validator := validation.NewValidator[string]().Rule(validation.Required())
 			err := validator.Validate(tt.value, "testField")
 
 			if tt.shouldErr {
@@ -77,7 +77,7 @@ func TestMinLength(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator[string]().Rule(MinLength(tt.minLength))
+			validator := validation.NewValidator[string]().Rule(validation.MinLength(tt.minLength))
 			err := validator.Validate(tt.value, "testField")
 
 			if tt.shouldErr {
@@ -108,7 +108,7 @@ func TestMaxLength(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator[string]().Rule(MaxLength(tt.maxLength))
+			validator := validation.NewValidator[string]().Rule(validation.MaxLength(tt.maxLength))
 			err := validator.Validate(tt.value, "testField")
 
 			if tt.shouldErr {
@@ -131,14 +131,14 @@ func TestEmail(t *testing.T) {
 		{"valid email", "test@example.com", false},
 		{"valid simple email", "a@b", false},
 		{"invalid no @", "testexample.com", true},
-		{"empty string", "", false}, // Email rule allows empty, use Required() for that
+		{"empty string", "", false}, // Email rule allows empty, use validation.Required() for that
 		{"only @", "@", false},
 		{"multiple @", "test@example@com", false}, // Simple validation, just checks for @
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator[string]().Rule(Email())
+			validator := validation.NewValidator[string]().Rule(validation.Email())
 			err := validator.Validate(tt.value, "testField")
 
 			if tt.shouldErr {
@@ -169,7 +169,7 @@ func TestMin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator[int]().Rule(Min(tt.min))
+			validator := validation.NewValidator[int]().Rule(validation.Min(tt.min))
 			err := validator.Validate(tt.value, "testField")
 
 			if tt.shouldErr {
@@ -199,7 +199,7 @@ func TestMax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator[int]().Rule(Max(tt.max))
+			validator := validation.NewValidator[int]().Rule(validation.Max(tt.max))
 			err := validator.Validate(tt.value, "testField")
 
 			if tt.shouldErr {
@@ -233,7 +233,7 @@ func TestRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator[int]().Rule(Range(tt.min, tt.max))
+			validator := validation.NewValidator[int]().Rule(validation.Range(tt.min, tt.max))
 			err := validator.Validate(tt.value, "testField")
 
 			if tt.shouldErr {
@@ -294,7 +294,7 @@ func TestCustomValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator[string]().Rule(Custom(tt.fn, "Custom validation failed"))
+			validator := validation.NewValidator[string]().Rule(validation.Custom(tt.fn, "Custom validation failed"))
 			err := validator.Validate(tt.value, "testField")
 
 			if tt.shouldErr {
@@ -319,7 +319,7 @@ func containsSpace(s string) bool {
 
 // Test custom validation with int.
 func TestCustomValidationInt(t *testing.T) {
-	validator := NewValidator[int]().Rule(Custom(func(i int) bool {
+	validator := validation.NewValidator[int]().Rule(validation.Custom(func(i int) bool {
 		return i%2 == 0 // Must be even
 	}, "Must be an even number"))
 
@@ -351,11 +351,11 @@ func TestMultipleRulesChaining(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator[string]().
-				Rule(Required()).
-				Rule(MinLength(5)).
-				Rule(MaxLength(30)).
-				Rule(Email())
+			validator := validation.NewValidator[string]().
+				Rule(validation.Required()).
+				Rule(validation.MinLength(5)).
+				Rule(validation.MaxLength(30)).
+				Rule(validation.Email())
 
 			err := validator.Validate(tt.value, "email")
 
@@ -371,26 +371,28 @@ func TestMultipleRulesChaining(t *testing.T) {
 
 // Test StructValidator.
 func TestNewStructValidator(t *testing.T) {
-	validator := NewStructValidator()
+	validator := validation.NewStructValidator()
 	assert.NotNil(t, validator)
-	assert.NotNil(t, validator.fields)
 }
 
 func TestValidateStruct(t *testing.T) {
-	validator := ValidateStruct()
+	validator := validation.ValidateStruct()
 	assert.NotNil(t, validator)
 }
 
 func TestStructValidatorField(t *testing.T) {
-	validator := NewStructValidator().
-		Field("Name", func(v interface{}) *Error {
-			return Validate[string]().Rule(Required()).Validate(v.(string), "Name")
+	validator := validation.NewStructValidator().
+		Field("Name", func(v interface{}) *validation.Error {
+			return validation.Validate[string]().Rule(validation.Required()).Validate(v.(string), "Name")
 		}).
-		Field("Age", func(v interface{}) *Error {
-			return Validate[int]().Rule(Min(18)).Validate(v.(int), "Age")
+		Field("Age", func(v interface{}) *validation.Error {
+			return validation.Validate[int]().Rule(validation.Min(18)).Validate(v.(int), "Age")
 		})
 
-	assert.Equal(t, 2, len(validator.fields))
+	// Test that fields can be validated
+	testData := &TestStruct{Name: "John", Age: 25, Email: "test@example.com"}
+	err := validator.Validate(testData)
+	assert.Nil(t, err)
 }
 
 type TestStruct struct {
@@ -440,15 +442,15 @@ func TestStructValidatorValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := ValidateStruct().
-				Field("Name", func(v interface{}) *Error {
-					return Validate[string]().Rule(Required()).Validate(v.(string), "Name")
+			validator := validation.ValidateStruct().
+				Field("Name", func(v interface{}) *validation.Error {
+					return validation.Validate[string]().Rule(validation.Required()).Validate(v.(string), "Name")
 				}).
-				Field("Age", func(v interface{}) *Error {
-					return Validate[int]().Rule(Min(18)).Validate(v.(int), "Age")
+				Field("Age", func(v interface{}) *validation.Error {
+					return validation.Validate[int]().Rule(validation.Min(18)).Validate(v.(int), "Age")
 				}).
-				Field("Email", func(v interface{}) *Error {
-					return Validate[string]().Rule(Email()).Validate(v.(string), "Email")
+				Field("Email", func(v interface{}) *validation.Error {
+					return validation.Validate[string]().Rule(validation.Email()).Validate(v.(string), "Email")
 				})
 
 			err := validator.Validate(tt.data)
@@ -464,7 +466,7 @@ func TestStructValidatorValidate(t *testing.T) {
 }
 
 func TestStructValidatorValidateNonStruct(t *testing.T) {
-	validator := ValidateStruct()
+	validator := validation.ValidateStruct()
 
 	// Test with non-struct value
 	err := validator.Validate("not a struct")
@@ -479,9 +481,9 @@ func TestStructValidatorValidateNonStruct(t *testing.T) {
 
 func TestStructValidatorValidateStructValue(t *testing.T) {
 	// Test with struct value (not pointer)
-	validator := ValidateStruct().
-		Field("Name", func(v interface{}) *Error {
-			return Validate[string]().Rule(Required()).Validate(v.(string), "Name")
+	validator := validation.ValidateStruct().
+		Field("Name", func(v interface{}) *validation.Error {
+			return validation.Validate[string]().Rule(validation.Required()).Validate(v.(string), "Name")
 		})
 
 	data := TestStruct{Name: "John", Age: 25}
@@ -494,49 +496,49 @@ func TestValidateStringAsInt(t *testing.T) {
 	tests := []struct {
 		name      string
 		value     string
-		validator *Validator[int]
+		validator *validation.Validator[int]
 		shouldErr bool
 		errorMsg  string
 	}{
 		{
 			"valid int string",
 			"25",
-			NewValidator[int]().Rule(Min(18)).Rule(Max(100)),
+			validation.NewValidator[int]().Rule(validation.Min(18)).Rule(validation.Max(100)),
 			false,
 			"",
 		},
 		{
 			"invalid int string",
 			"not a number",
-			NewValidator[int]().Rule(Min(18)),
+			validation.NewValidator[int]().Rule(validation.Min(18)),
 			true,
 			"Must be a valid integer",
 		},
 		{
 			"empty string",
 			"",
-			NewValidator[int]().Rule(Min(18)),
+			validation.NewValidator[int]().Rule(validation.Min(18)),
 			false,
 			"", // Empty strings are allowed
 		},
 		{
 			"int fails validation",
 			"15",
-			NewValidator[int]().Rule(Min(18)),
+			validation.NewValidator[int]().Rule(validation.Min(18)),
 			true,
 			"Must be at least 18",
 		},
 		{
 			"negative int",
 			"-10",
-			NewValidator[int]().Rule(Min(0)),
+			validation.NewValidator[int]().Rule(validation.Min(0)),
 			true,
 			"Must be at least 0",
 		},
 		{
 			"valid negative int",
 			"-5",
-			NewValidator[int]().Rule(Min(-10)).Rule(Max(0)),
+			validation.NewValidator[int]().Rule(validation.Min(-10)).Rule(validation.Max(0)),
 			false,
 			"",
 		},
@@ -544,7 +546,7 @@ func TestValidateStringAsInt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateStringAsInt(tt.value, "testField", tt.validator)
+			err := validation.ValidateStringAsInt(tt.value, "testField", tt.validator)
 
 			if tt.shouldErr {
 				assert.NotNil(t, err)
@@ -559,22 +561,22 @@ func TestValidateStringAsInt(t *testing.T) {
 // Test edge cases.
 func TestValidatorEdgeCases(t *testing.T) {
 	t.Run("validator with no rules", func(t *testing.T) {
-		validator := NewValidator[string]()
+		validator := validation.NewValidator[string]()
 		err := validator.Validate("any value", "field")
 		assert.Nil(t, err) // Should pass with no rules
 	})
 
 	t.Run("field name in error message", func(t *testing.T) {
-		validator := NewValidator[string]().Rule(Required())
+		validator := validation.NewValidator[string]().Rule(validation.Required())
 		err := validator.Validate("", "customFieldName")
 		assert.NotNil(t, err)
 		assert.Equal(t, "customFieldName", err.ErrorResponse.Details[0].Field)
 	})
 
 	t.Run("multiple validation errors stop at first", func(t *testing.T) {
-		validator := NewValidator[string]().
-			Rule(Required()).
-			Rule(MinLength(10)) // This won't be checked if Required fails
+		validator := validation.NewValidator[string]().
+			Rule(validation.Required()).
+			Rule(validation.MinLength(10)) // This won't be checked if Required fails
 
 		err := validator.Validate("", "field")
 		assert.NotNil(t, err)
@@ -583,7 +585,7 @@ func TestValidatorEdgeCases(t *testing.T) {
 	})
 
 	t.Run("struct validator with no fields", func(t *testing.T) {
-		validator := ValidateStruct()
+		validator := validation.ValidateStruct()
 		err := validator.Validate(&TestStruct{Name: "test", Age: 20})
 		assert.Nil(t, err) // Should pass with no field validators
 	})

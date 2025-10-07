@@ -64,7 +64,7 @@ func TestValidatedPathParam(t *testing.T) {
 				Custom(func(s string) bool {
 					// Username should only contain alphanumeric characters
 					for _, r := range s {
-						if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+						if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
 							return false
 						}
 					}
@@ -270,7 +270,7 @@ func TestChainingValidation(t *testing.T) {
 				Custom(func(s string) bool {
 					// Username should only contain alphanumeric characters
 					for _, r := range s {
-						if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+						if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
 							return false
 						}
 					}

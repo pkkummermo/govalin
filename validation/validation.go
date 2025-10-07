@@ -1,3 +1,5 @@
+// Package validation provides advanced validation constructors and rules for complex validation scenarios.
+// It offers type-safe validation with generic support and integration with the govalin validation system.
 package validation
 
 import (
@@ -31,13 +33,13 @@ func Required() validation.ValidationRule[string] {
 }
 
 // MinLength validates minimum string length.
-func MinLength(min int) validation.ValidationRule[string] {
-	return validation.MinLength(min)
+func MinLength(minimum int) validation.ValidationRule[string] {
+	return validation.MinLength(minimum)
 }
 
 // MaxLength validates maximum string length.
-func MaxLength(max int) validation.ValidationRule[string] {
-	return validation.MaxLength(max)
+func MaxLength(maximum int) validation.ValidationRule[string] {
+	return validation.MaxLength(maximum)
 }
 
 // Email validates email format (simple validation).
@@ -46,18 +48,18 @@ func Email() validation.ValidationRule[string] {
 }
 
 // Min validates minimum integer value.
-func Min(min int) validation.ValidationRule[int] {
-	return validation.Min(min)
+func Min(minimum int) validation.ValidationRule[int] {
+	return validation.Min(minimum)
 }
 
 // Max validates maximum integer value.
-func Max(max int) validation.ValidationRule[int] {
-	return validation.Max(max)
+func Max(maximum int) validation.ValidationRule[int] {
+	return validation.Max(maximum)
 }
 
 // Range validates integer is within range.
-func Range(min, max int) validation.ValidationRule[int] {
-	return validation.Range(min, max)
+func Range(minimum, maximum int) validation.ValidationRule[int] {
+	return validation.Range(minimum, maximum)
 }
 
 // CustomString allows defining custom validation logic for strings.
@@ -138,7 +140,11 @@ func (tv *TypedValidator[T]) Get() error {
 // WithTypedCustom adds a type-safe custom validation rule for the entire body using a helper function
 // This function works with any type that has an AddRule method
 // Deprecated: Use WithTyped().Custom(...).Get() for curryable validation.
-func WithTypedCustom[T any, V interface{ AddRule(func(interface{}) error) }](v V, validatorFn func(T) bool, message string) V {
+func WithTypedCustom[T any, V interface{ AddRule(func(interface{}) error) }](
+	v V,
+	validatorFn func(T) bool,
+	message string,
+) V {
 	v.AddRule(func(data interface{}) error {
 		typedData, ok := data.(*T)
 		if !ok {

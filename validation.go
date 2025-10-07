@@ -28,10 +28,9 @@ type IntValidator struct {
 
 // BodyValidator provides validation for request body.
 type BodyValidator struct {
-	call         *Call
-	target       interface{}
-	rules        []func(interface{}) error
-	currentField string
+	call   *Call
+	target interface{}
+	rules  []func(interface{}) error
 }
 
 // BodyFieldValidator allows chaining validation rules for a specific field.
@@ -57,12 +56,12 @@ func (v *StringValidator) Required() *StringValidator {
 }
 
 // MinLength adds a minimum length validation rule.
-func (v *StringValidator) MinLength(min int) *StringValidator {
+func (v *StringValidator) MinLength(minimum int) *StringValidator {
 	v.rules = append(v.rules, func(value, fieldName string) error {
-		if len(value) < min {
+		if len(value) < minimum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d characters long", min)),
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d characters long", minimum)),
 			))
 		}
 		return nil
@@ -71,12 +70,12 @@ func (v *StringValidator) MinLength(min int) *StringValidator {
 }
 
 // MaxLength adds a maximum length validation rule.
-func (v *StringValidator) MaxLength(max int) *StringValidator {
+func (v *StringValidator) MaxLength(maximum int) *StringValidator {
 	v.rules = append(v.rules, func(value, fieldName string) error {
-		if len(value) > max {
+		if len(value) > maximum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d characters long", max)),
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d characters long", maximum)),
 			))
 		}
 		return nil
@@ -125,12 +124,12 @@ func (v *StringValidator) Get() (string, error) {
 // Integer validation rule methods
 
 // Min adds a minimum value validation rule for integers.
-func (v *IntValidator) Min(min int) *IntValidator {
+func (v *IntValidator) Min(minimum int) *IntValidator {
 	v.rules = append(v.rules, func(value int, fieldName string) error {
-		if value < min {
+		if value < minimum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d", min)),
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d", minimum)),
 			))
 		}
 		return nil
@@ -139,12 +138,12 @@ func (v *IntValidator) Min(min int) *IntValidator {
 }
 
 // Max adds a maximum value validation rule for integers.
-func (v *IntValidator) Max(max int) *IntValidator {
+func (v *IntValidator) Max(maximum int) *IntValidator {
 	v.rules = append(v.rules, func(value int, fieldName string) error {
-		if value > max {
+		if value > maximum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d", max)),
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d", maximum)),
 			))
 		}
 		return nil
@@ -153,12 +152,12 @@ func (v *IntValidator) Max(max int) *IntValidator {
 }
 
 // Range adds a range validation rule for integers.
-func (v *IntValidator) Range(min, max int) *IntValidator {
+func (v *IntValidator) Range(minimum, maximum int) *IntValidator {
 	v.rules = append(v.rules, func(value int, fieldName string) error {
-		if value < min || value > max {
+		if value < minimum || value > maximum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be between %d and %d", min, max)),
+				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be between %d and %d", minimum, maximum)),
 			))
 		}
 		return nil
@@ -203,7 +202,7 @@ func (v *IntValidator) Get() (int, error) {
 // Body validation methods
 
 // Field adds field validation for body.
-func (v *BodyValidator) Field(fieldName string, validator func(interface{}) error) *BodyValidator {
+func (v *BodyValidator) Field(_ string, validator func(interface{}) error) *BodyValidator {
 	v.rules = append(v.rules, func(data interface{}) error {
 		return validator(data)
 	})
@@ -277,7 +276,7 @@ func (f *BodyFieldValidator) Required() *BodyFieldValidator {
 }
 
 // MinLength adds a minimum length validation rule for string fields.
-func (f *BodyFieldValidator) MinLength(min int) *BodyFieldValidator {
+func (f *BodyFieldValidator) MinLength(minimum int) *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
@@ -288,10 +287,10 @@ func (f *BodyFieldValidator) MinLength(min int) *BodyFieldValidator {
 			))
 		}
 
-		if field.Kind() == reflect.String && len(field.String()) < min {
+		if field.Kind() == reflect.String && len(field.String()) < minimum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at least %d characters long", min)),
+				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at least %d characters long", minimum)),
 			))
 		}
 		return nil
@@ -300,7 +299,7 @@ func (f *BodyFieldValidator) MinLength(min int) *BodyFieldValidator {
 }
 
 // MaxLength adds a maximum length validation rule for string fields.
-func (f *BodyFieldValidator) MaxLength(max int) *BodyFieldValidator {
+func (f *BodyFieldValidator) MaxLength(maximum int) *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
@@ -311,10 +310,10 @@ func (f *BodyFieldValidator) MaxLength(max int) *BodyFieldValidator {
 			))
 		}
 
-		if field.Kind() == reflect.String && len(field.String()) > max {
+		if field.Kind() == reflect.String && len(field.String()) > maximum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at most %d characters long", max)),
+				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at most %d characters long", maximum)),
 			))
 		}
 		return nil
@@ -349,7 +348,7 @@ func (f *BodyFieldValidator) Email() *BodyFieldValidator {
 }
 
 // Min adds a minimum value validation rule for integer fields.
-func (f *BodyFieldValidator) Min(min int) *BodyFieldValidator {
+func (f *BodyFieldValidator) Min(minimum int) *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
@@ -360,10 +359,10 @@ func (f *BodyFieldValidator) Min(min int) *BodyFieldValidator {
 			))
 		}
 
-		if field.Kind() == reflect.Int && int(field.Int()) < min {
+		if field.Kind() == reflect.Int && int(field.Int()) < minimum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at least %d", min)),
+				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at least %d", minimum)),
 			))
 		}
 		return nil
@@ -372,7 +371,7 @@ func (f *BodyFieldValidator) Min(min int) *BodyFieldValidator {
 }
 
 // Max adds a maximum value validation rule for integer fields.
-func (f *BodyFieldValidator) Max(max int) *BodyFieldValidator {
+func (f *BodyFieldValidator) Max(maximum int) *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
@@ -383,10 +382,10 @@ func (f *BodyFieldValidator) Max(max int) *BodyFieldValidator {
 			))
 		}
 
-		if field.Kind() == reflect.Int && int(field.Int()) > max {
+		if field.Kind() == reflect.Int && int(field.Int()) > maximum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at most %d", max)),
+				validation.NewParameterErrorDetail(f.fieldName, fmt.Sprintf("Must be at most %d", maximum)),
 			))
 		}
 		return nil
