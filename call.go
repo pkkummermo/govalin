@@ -635,7 +635,7 @@ func (call *Call) Error(err error) {
 
 // Validation methods that return curryable validation objects
 
-// ValidatedQueryParam returns a curryable string validator for query parameters
+// ValidatedQueryParam returns a curryable string validator for query parameters.
 func (call *Call) ValidatedQueryParam(key string) *StringValidator {
 	value := call.QueryParam(key)
 	return &StringValidator{
@@ -646,7 +646,7 @@ func (call *Call) ValidatedQueryParam(key string) *StringValidator {
 	}
 }
 
-// ValidatedPathParam returns a curryable string validator for path parameters
+// ValidatedPathParam returns a curryable string validator for path parameters.
 func (call *Call) ValidatedPathParam(key string) *StringValidator {
 	value := call.PathParam(key)
 	return &StringValidator{
@@ -657,7 +657,7 @@ func (call *Call) ValidatedPathParam(key string) *StringValidator {
 	}
 }
 
-// ValidatedFormParam returns a curryable string validator for form parameters
+// ValidatedFormParam returns a curryable string validator for form parameters.
 func (call *Call) ValidatedFormParam(key string) *StringValidator {
 	value, err := call.FormParam(key)
 	validator := &StringValidator{
@@ -673,7 +673,7 @@ func (call *Call) ValidatedFormParam(key string) *StringValidator {
 	return validator
 }
 
-// ValidatedQueryParamAsInt returns a curryable integer validator for query parameters
+// ValidatedQueryParamAsInt returns a curryable integer validator for query parameters.
 func (call *Call) ValidatedQueryParamAsInt(key string) *IntValidator {
 	value := call.QueryParam(key)
 	return &IntValidator{
@@ -684,7 +684,7 @@ func (call *Call) ValidatedQueryParamAsInt(key string) *IntValidator {
 	}
 }
 
-// ValidatedPathParamAsInt returns a curryable integer validator for path parameters
+// ValidatedPathParamAsInt returns a curryable integer validator for path parameters.
 func (call *Call) ValidatedPathParamAsInt(key string) *IntValidator {
 	value := call.PathParam(key)
 	return &IntValidator{
@@ -695,7 +695,7 @@ func (call *Call) ValidatedPathParamAsInt(key string) *IntValidator {
 	}
 }
 
-// ValidatedFormParamAsInt returns a curryable integer validator for form parameters
+// ValidatedFormParamAsInt returns a curryable integer validator for form parameters.
 func (call *Call) ValidatedFormParamAsInt(key string) *IntValidator {
 	value, err := call.FormParam(key)
 	validator := &IntValidator{
@@ -711,7 +711,7 @@ func (call *Call) ValidatedFormParamAsInt(key string) *IntValidator {
 	return validator
 }
 
-// ValidatedBody returns a curryable body validator
+// ValidatedBody returns a curryable body validator.
 func (call *Call) ValidatedBody(target interface{}) *BodyValidator {
 	return &BodyValidator{
 		call:   call,

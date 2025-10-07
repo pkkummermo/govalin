@@ -8,15 +8,15 @@ import (
 	"strings"
 )
 
-// ValidationRule represents a single validation rule
+// ValidationRule represents a single validation rule.
 type ValidationRule[T any] func(value T, fieldName string) *Error
 
-// Validator provides type-safe validation for various data types
+// Validator provides type-safe validation for various data types.
 type Validator[T any] struct {
 	rules []ValidationRule[T]
 }
 
-// NewValidator creates a new type-safe validator
+// NewValidator creates a new type-safe validator.
 func NewValidator[T any]() *Validator[T] {
 	return &Validator[T]{
 		rules: make([]ValidationRule[T], 0),
@@ -32,13 +32,13 @@ func Validate[T any]() *Validator[T] {
 	return NewValidator[T]()
 }
 
-// Rule adds a validation rule to the validator (currying/chaining)
+// Rule adds a validation rule to the validator (currying/chaining).
 func (v *Validator[T]) Rule(rule ValidationRule[T]) *Validator[T] {
 	v.rules = append(v.rules, rule)
 	return v
 }
 
-// Validate validates a value against all rules
+// Validate validates a value against all rules.
 func (v *Validator[T]) Validate(value T, fieldName string) *Error {
 	for _, rule := range v.rules {
 		if err := rule(value, fieldName); err != nil {
@@ -50,7 +50,7 @@ func (v *Validator[T]) Validate(value T, fieldName string) *Error {
 
 // String validation rules
 
-// Required validates that a string is not empty
+// Required validates that a string is not empty.
 func Required() ValidationRule[string] {
 	return func(value string, fieldName string) *Error {
 		if strings.TrimSpace(value) == "" {
@@ -63,7 +63,7 @@ func Required() ValidationRule[string] {
 	}
 }
 
-// MinLength validates minimum string length
+// MinLength validates minimum string length.
 func MinLength(min int) ValidationRule[string] {
 	return func(value string, fieldName string) *Error {
 		if len(value) < min {
@@ -76,7 +76,7 @@ func MinLength(min int) ValidationRule[string] {
 	}
 }
 
-// MaxLength validates maximum string length
+// MaxLength validates maximum string length.
 func MaxLength(max int) ValidationRule[string] {
 	return func(value string, fieldName string) *Error {
 		if len(value) > max {
@@ -89,7 +89,7 @@ func MaxLength(max int) ValidationRule[string] {
 	}
 }
 
-// Email validates email format (simple validation)
+// Email validates email format (simple validation).
 func Email() ValidationRule[string] {
 	return func(value string, fieldName string) *Error {
 		if value != "" && !strings.Contains(value, "@") {
@@ -104,7 +104,7 @@ func Email() ValidationRule[string] {
 
 // Integer validation rules
 
-// Min validates minimum integer value
+// Min validates minimum integer value.
 func Min(min int) ValidationRule[int] {
 	return func(value int, fieldName string) *Error {
 		if value < min {
@@ -117,7 +117,7 @@ func Min(min int) ValidationRule[int] {
 	}
 }
 
-// Max validates maximum integer value
+// Max validates maximum integer value.
 func Max(max int) ValidationRule[int] {
 	return func(value int, fieldName string) *Error {
 		if value > max {
@@ -130,7 +130,7 @@ func Max(max int) ValidationRule[int] {
 	}
 }
 
-// Range validates integer is within range
+// Range validates integer is within range.
 func Range(min, max int) ValidationRule[int] {
 	return func(value int, fieldName string) *Error {
 		if value < min || value > max {
@@ -145,7 +145,7 @@ func Range(min, max int) ValidationRule[int] {
 
 // Generic validation rules
 
-// Custom allows defining custom validation logic
+// Custom allows defining custom validation logic.
 func Custom[T any](fn func(T) bool, message string) ValidationRule[T] {
 	return func(value T, fieldName string) *Error {
 		if !fn(value) {
@@ -158,12 +158,12 @@ func Custom[T any](fn func(T) bool, message string) ValidationRule[T] {
 	}
 }
 
-// StructValidator provides validation for struct fields
+// StructValidator provides validation for struct fields.
 type StructValidator struct {
 	fields map[string]func(interface{}) *Error
 }
 
-// NewStructValidator creates a new struct validator
+// NewStructValidator creates a new struct validator.
 func NewStructValidator() *StructValidator {
 	return &StructValidator{
 		fields: make(map[string]func(interface{}) *Error),
@@ -180,13 +180,13 @@ func ValidateStruct() *StructValidator {
 	return NewStructValidator()
 }
 
-// Field adds a field validator
+// Field adds a field validator.
 func (sv *StructValidator) Field(fieldName string, validator func(interface{}) *Error) *StructValidator {
 	sv.fields[fieldName] = validator
 	return sv
 }
 
-// Validate validates a struct
+// Validate validates a struct.
 func (sv *StructValidator) Validate(data interface{}) *Error {
 	v := reflect.ValueOf(data)
 	if v.Kind() == reflect.Ptr {
@@ -223,7 +223,7 @@ func (sv *StructValidator) Validate(data interface{}) *Error {
 
 // Helper functions for common type conversions and validations
 
-// ValidateStringAsInt validates a string can be converted to int and applies int validation
+// ValidateStringAsInt validates a string can be converted to int and applies int validation.
 func ValidateStringAsInt(value string, fieldName string, validator *Validator[int]) *Error {
 	if value == "" {
 		return nil // Let Required() handle empty strings

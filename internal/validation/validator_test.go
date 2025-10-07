@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Test NewValidator and Validate functions
+// Test NewValidator and Validate functions.
 func TestNewValidator(t *testing.T) {
 	validator := NewValidator[string]()
 	assert.NotNil(t, validator)
@@ -21,7 +21,7 @@ func TestValidate(t *testing.T) {
 	assert.NotNil(t, validator.rules)
 }
 
-// Test Rule chaining
+// Test Rule chaining.
 func TestValidatorRuleChaining(t *testing.T) {
 	validator := NewValidator[string]().
 		Rule(Required()).
@@ -31,7 +31,7 @@ func TestValidatorRuleChaining(t *testing.T) {
 	assert.Equal(t, 3, len(validator.rules))
 }
 
-// Test string validation rules
+// Test string validation rules.
 func TestRequired(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -152,7 +152,7 @@ func TestEmail(t *testing.T) {
 	}
 }
 
-// Test integer validation rules
+// Test integer validation rules.
 func TestMin(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -247,7 +247,7 @@ func TestRange(t *testing.T) {
 	}
 }
 
-// Test custom validation
+// Test custom validation.
 func TestCustomValidation(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -317,7 +317,7 @@ func containsSpace(s string) bool {
 	return false
 }
 
-// Test custom validation with int
+// Test custom validation with int.
 func TestCustomValidationInt(t *testing.T) {
 	validator := NewValidator[int]().Rule(Custom(func(i int) bool {
 		return i%2 == 0 // Must be even
@@ -333,7 +333,7 @@ func TestCustomValidationInt(t *testing.T) {
 	assert.Contains(t, err.ErrorResponse.Details[0].Reason, "Must be an even number")
 }
 
-// Test multiple rules chaining
+// Test multiple rules chaining.
 func TestMultipleRulesChaining(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -369,7 +369,7 @@ func TestMultipleRulesChaining(t *testing.T) {
 	}
 }
 
-// Test StructValidator
+// Test StructValidator.
 func TestNewStructValidator(t *testing.T) {
 	validator := NewStructValidator()
 	assert.NotNil(t, validator)
@@ -489,7 +489,7 @@ func TestStructValidatorValidateStructValue(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-// Test ValidateStringAsInt
+// Test ValidateStringAsInt.
 func TestValidateStringAsInt(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -556,7 +556,7 @@ func TestValidateStringAsInt(t *testing.T) {
 	}
 }
 
-// Test edge cases
+// Test edge cases.
 func TestValidatorEdgeCases(t *testing.T) {
 	t.Run("validator with no rules", func(t *testing.T) {
 		validator := NewValidator[string]()
