@@ -10,7 +10,7 @@ import (
 	"github.com/pkkummermo/govalin/internal/validation"
 )
 
-// StringValidator provides a curryable string validation interface
+// StringValidator provides a curryable string validation interface.
 type StringValidator struct {
 	call  *Call
 	key   string
@@ -18,7 +18,7 @@ type StringValidator struct {
 	rules []func(string, string) error
 }
 
-// IntValidator provides a curryable integer validation interface
+// IntValidator provides a curryable integer validation interface.
 type IntValidator struct {
 	call  *Call
 	key   string
@@ -26,7 +26,7 @@ type IntValidator struct {
 	rules []func(int, string) error
 }
 
-// BodyValidator provides validation for request body
+// BodyValidator provides validation for request body.
 type BodyValidator struct {
 	call         *Call
 	target       interface{}
@@ -34,7 +34,7 @@ type BodyValidator struct {
 	currentField string
 }
 
-// BodyFieldValidator allows chaining validation rules for a specific field
+// BodyFieldValidator allows chaining validation rules for a specific field.
 type BodyFieldValidator struct {
 	bodyValidator *BodyValidator
 	fieldName     string
@@ -42,7 +42,7 @@ type BodyFieldValidator struct {
 
 // String validation rule methods
 
-// Required adds a required validation rule
+// Required adds a required validation rule.
 func (v *StringValidator) Required() *StringValidator {
 	v.rules = append(v.rules, func(value, fieldName string) error {
 		if strings.TrimSpace(value) == "" {
@@ -56,7 +56,7 @@ func (v *StringValidator) Required() *StringValidator {
 	return v
 }
 
-// MinLength adds a minimum length validation rule
+// MinLength adds a minimum length validation rule.
 func (v *StringValidator) MinLength(min int) *StringValidator {
 	v.rules = append(v.rules, func(value, fieldName string) error {
 		if len(value) < min {
@@ -70,7 +70,7 @@ func (v *StringValidator) MinLength(min int) *StringValidator {
 	return v
 }
 
-// MaxLength adds a maximum length validation rule
+// MaxLength adds a maximum length validation rule.
 func (v *StringValidator) MaxLength(max int) *StringValidator {
 	v.rules = append(v.rules, func(value, fieldName string) error {
 		if len(value) > max {
@@ -84,7 +84,7 @@ func (v *StringValidator) MaxLength(max int) *StringValidator {
 	return v
 }
 
-// Email adds an email validation rule
+// Email adds an email validation rule.
 func (v *StringValidator) Email() *StringValidator {
 	v.rules = append(v.rules, func(value, fieldName string) error {
 		if value != "" && !strings.Contains(value, "@") {
@@ -98,7 +98,7 @@ func (v *StringValidator) Email() *StringValidator {
 	return v
 }
 
-// Custom adds a custom validation rule for strings
+// Custom adds a custom validation rule for strings.
 func (v *StringValidator) Custom(fn func(string) bool, message string) *StringValidator {
 	v.rules = append(v.rules, func(value, fieldName string) error {
 		if !fn(value) {
@@ -112,7 +112,7 @@ func (v *StringValidator) Custom(fn func(string) bool, message string) *StringVa
 	return v
 }
 
-// Get validates the string and returns it if valid
+// Get validates the string and returns it if valid.
 func (v *StringValidator) Get() (string, error) {
 	for _, rule := range v.rules {
 		if err := rule(v.value, v.key); err != nil {
@@ -124,7 +124,7 @@ func (v *StringValidator) Get() (string, error) {
 
 // Integer validation rule methods
 
-// Min adds a minimum value validation rule for integers
+// Min adds a minimum value validation rule for integers.
 func (v *IntValidator) Min(min int) *IntValidator {
 	v.rules = append(v.rules, func(value int, fieldName string) error {
 		if value < min {
@@ -138,7 +138,7 @@ func (v *IntValidator) Min(min int) *IntValidator {
 	return v
 }
 
-// Max adds a maximum value validation rule for integers
+// Max adds a maximum value validation rule for integers.
 func (v *IntValidator) Max(max int) *IntValidator {
 	v.rules = append(v.rules, func(value int, fieldName string) error {
 		if value > max {
@@ -152,7 +152,7 @@ func (v *IntValidator) Max(max int) *IntValidator {
 	return v
 }
 
-// Range adds a range validation rule for integers
+// Range adds a range validation rule for integers.
 func (v *IntValidator) Range(min, max int) *IntValidator {
 	v.rules = append(v.rules, func(value int, fieldName string) error {
 		if value < min || value > max {
@@ -166,7 +166,7 @@ func (v *IntValidator) Range(min, max int) *IntValidator {
 	return v
 }
 
-// Custom adds a custom validation rule for integers
+// Custom adds a custom validation rule for integers.
 func (v *IntValidator) Custom(fn func(int) bool, message string) *IntValidator {
 	v.rules = append(v.rules, func(value int, fieldName string) error {
 		if !fn(value) {
@@ -180,7 +180,7 @@ func (v *IntValidator) Custom(fn func(int) bool, message string) *IntValidator {
 	return v
 }
 
-// Get validates the integer and returns it if valid
+// Get validates the integer and returns it if valid.
 func (v *IntValidator) Get() (int, error) {
 	// First try to convert string to int
 	intVal, err := strconv.Atoi(v.value)
@@ -202,7 +202,7 @@ func (v *IntValidator) Get() (int, error) {
 
 // Body validation methods
 
-// Field adds field validation for body
+// Field adds field validation for body.
 func (v *BodyValidator) Field(fieldName string, validator func(interface{}) error) *BodyValidator {
 	v.rules = append(v.rules, func(data interface{}) error {
 		return validator(data)
@@ -210,12 +210,12 @@ func (v *BodyValidator) Field(fieldName string, validator func(interface{}) erro
 	return v
 }
 
-// AddRule adds a validation rule to the body validator (implements interface for validation package)
+// AddRule adds a validation rule to the body validator (implements interface for validation package).
 func (v *BodyValidator) AddRule(rule func(interface{}) error) {
 	v.rules = append(v.rules, rule)
 }
 
-// Custom adds a custom validation rule for the entire body with type safety
+// Custom adds a custom validation rule for the entire body with type safety.
 func (v *BodyValidator) Custom(validatorFn func(interface{}) bool, message string) *BodyValidator {
 	v.rules = append(v.rules, func(data interface{}) error {
 		if !validatorFn(data) {
@@ -229,7 +229,7 @@ func (v *BodyValidator) Custom(validatorFn func(interface{}) bool, message strin
 	return v
 }
 
-// Get validates the body and returns error if invalid
+// Get validates the body and returns error if invalid.
 func (v *BodyValidator) Get() error {
 	// First unmarshal the body
 	if err := v.call.BodyAs(v.target); err != nil {
@@ -245,7 +245,7 @@ func (v *BodyValidator) Get() error {
 	return nil
 }
 
-// ValidateField sets the current field for validation and returns a BodyFieldValidator
+// ValidateField sets the current field for validation and returns a BodyFieldValidator.
 func (v *BodyValidator) ValidateField(fieldName string) *BodyFieldValidator {
 	return &BodyFieldValidator{
 		bodyValidator: v,
@@ -253,7 +253,7 @@ func (v *BodyValidator) ValidateField(fieldName string) *BodyFieldValidator {
 	}
 }
 
-// Required adds a required validation rule for the current field
+// Required adds a required validation rule for the current field.
 func (f *BodyFieldValidator) Required() *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
@@ -276,7 +276,7 @@ func (f *BodyFieldValidator) Required() *BodyFieldValidator {
 	return f
 }
 
-// MinLength adds a minimum length validation rule for string fields
+// MinLength adds a minimum length validation rule for string fields.
 func (f *BodyFieldValidator) MinLength(min int) *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
@@ -299,7 +299,7 @@ func (f *BodyFieldValidator) MinLength(min int) *BodyFieldValidator {
 	return f
 }
 
-// MaxLength adds a maximum length validation rule for string fields
+// MaxLength adds a maximum length validation rule for string fields.
 func (f *BodyFieldValidator) MaxLength(max int) *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
@@ -322,7 +322,7 @@ func (f *BodyFieldValidator) MaxLength(max int) *BodyFieldValidator {
 	return f
 }
 
-// Email adds an email validation rule for string fields
+// Email adds an email validation rule for string fields.
 func (f *BodyFieldValidator) Email() *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
@@ -348,7 +348,7 @@ func (f *BodyFieldValidator) Email() *BodyFieldValidator {
 	return f
 }
 
-// Min adds a minimum value validation rule for integer fields
+// Min adds a minimum value validation rule for integer fields.
 func (f *BodyFieldValidator) Min(min int) *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
@@ -371,7 +371,7 @@ func (f *BodyFieldValidator) Min(min int) *BodyFieldValidator {
 	return f
 }
 
-// Max adds a maximum value validation rule for integer fields
+// Max adds a maximum value validation rule for integer fields.
 func (f *BodyFieldValidator) Max(max int) *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		val := reflect.ValueOf(data).Elem()
@@ -394,7 +394,7 @@ func (f *BodyFieldValidator) Max(max int) *BodyFieldValidator {
 	return f
 }
 
-// Custom adds a custom validation rule for the current field
+// Custom adds a custom validation rule for the current field.
 func (f *BodyFieldValidator) Custom(validatorFn func(interface{}) bool, message string) *BodyFieldValidator {
 	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
 		if !validatorFn(data) {
@@ -408,7 +408,7 @@ func (f *BodyFieldValidator) Custom(validatorFn func(interface{}) bool, message 
 	return f
 }
 
-// Get completes the field validation and returns the body validator for more fields or final validation
+// Get completes the field validation and returns the body validator for more fields or final validation.
 func (f *BodyFieldValidator) Get() *BodyValidator {
 	return f.bodyValidator
 }
