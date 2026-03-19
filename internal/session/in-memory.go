@@ -4,7 +4,6 @@ package session
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -30,12 +29,21 @@ func NewInMemoryStore() Store {
 			time.Sleep(pruneInterval)
 			err := initiatedStore.sessionPrune()
 			if err != nil {
-				slog.Error(fmt.Sprintf("Failed to prune sessions: %v", err))
+				slog.Error("Failed to prune sessions", "error", err)
 			}
 		}
 	}()
 
 	return &initiatedStore
+}
+
+// removeSessionLocked deletes a session from the store. Caller must hold s.mutex.
+func (s *inMemoryStore) removeSessionLocked(sessionID string) error {
+	if _, ok := s.store[sessionID]; !ok {
+		return errors.New("not found")
+	}
+	delete(s.store, sessionID)
+	return nil
 }
 
 func (s *inMemoryStore) sessionPrune() error {
@@ -44,10 +52,9 @@ func (s *inMemoryStore) sessionPrune() error {
 
 	for sessionID, session := range s.store {
 		if session.Expires < time.Now().UnixNano() {
-			slog.Debug(fmt.Sprintf("Pruning session: %s", sessionID))
-			deleteErr := s.RemoveSession(sessionID)
-			if deleteErr != nil {
-				return deleteErr
+			slog.Debug("Pruning session", "sessionID", sessionID)
+			if err := s.removeSessionLocked(sessionID); err != nil {
+				return err
 			}
 		}
 	}
@@ -92,13 +99,7 @@ func (s *inMemoryStore) GetSession(sessionID string, expireTime int64) (Session,
 func (s *inMemoryStore) RemoveSession(sessionID string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
-	if _, ok := s.store[sessionID]; !ok {
-		return errors.New("not found")
-	}
-
-	delete(s.store, sessionID)
-	return nil
+	return s.removeSessionLocked(sessionID)
 }
 
 // GetSessions returns all sessions that have not expired.
