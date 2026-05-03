@@ -14,7 +14,7 @@ import (
 	"github.com/pkkummermo/govalin"
 )
 
-const generalStartupTimeoutInMS = 1
+const generalStartupTimeoutInMS = 50
 
 type (
 	TestFunc func(app *govalin.App) *govalin.App
@@ -258,9 +258,9 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 	server := serverF(testInstance)
 
 	go func() {
-		err = server.Start(port)
-		if err != nil {
-			slog.Error(fmt.Sprintf("Failed to start test server. %v", err))
+		startErr := server.Start(port)
+		if startErr != nil {
+			slog.Error(fmt.Sprintf("Failed to start test server. %v", startErr))
 			os.Exit(1)
 		}
 	}()
@@ -284,9 +284,9 @@ func HTTPTestUtil(serverF TestFunc, testFunc ExecFunc) {
 		},
 	), Host: fmt.Sprintf("http://localhost:%d", port)})
 
-	err = server.Shutdown()
-	if err != nil {
-		slog.Error(fmt.Sprintf("Failed to shutdown test server. %v", err))
+	shutdownErr := server.Shutdown()
+	if shutdownErr != nil {
+		slog.Error(fmt.Sprintf("Failed to shutdown test server. %v", shutdownErr))
 		os.Exit(1)
 	}
 }
