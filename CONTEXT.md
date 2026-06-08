@@ -92,6 +92,18 @@ _Avoid_: mixed-risk delivery, bundled stabilization and redesign
 PR1 includes only race-helper stabilization and CI gate/toolchain updates, excluding redirect and static behavior changes.
 _Avoid_: scope bleed into routing semantics, mixed stabilization and feature behavior
 
+**Validation rule**:
+A check applied to an input that asserts a condition and leaves the value unchanged; it either passes or yields a validation error.
+_Avoid_: value-mutating check, silent correction
+
+**Transform step**:
+A step in an input-handling chain that normalizes the value (such as trimming surrounding whitespace) and always succeeds, never producing a validation error.
+_Avoid_: erroring normalizer, validation-as-transform
+
+**Chain order significance**:
+Rules and transforms apply in written order; a transform only affects checks placed after it in the chain.
+_Avoid_: implicit reordering, position-independent transforms
+
 ## Relationships
 
 - A **Race-clean build** is a required outcome of the **Stability gate**
@@ -115,6 +127,8 @@ _Avoid_: scope bleed into routing semantics, mixed stabilization and feature beh
 - **Dual-minor compatibility matrix** provides compatibility signal on 1.25.x and 1.24.x
 - **Two-PR rollout** isolates race-gate stabilization from static-routing redesign
 - **Scope-locked PR1** constrains initial delivery to test-helper race fix and CI enforcement updates
+- A **Validation rule** asserts on an input without changing it; a **Transform step** changes the value and never fails
+- **Chain order significance** means a **Transform step** only reaches a **Validation rule** placed after it
 
 ## Example dialogue
 
