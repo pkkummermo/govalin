@@ -69,6 +69,32 @@ Are you sure it exists on the given path: '%s'`, indexPath))
 	http.ServeFile(*call.Raw.W, call.Raw.Req, filepath.Join(config.staticPath, "index.html"))
 }
 
+// resolveWithinStaticRoot resolves requestPath against the static root directory
+// and verifies the result is contained within that root. It returns the
+// absolute, cleaned path and true when the path is safe, or false when the path
+// escapes the root (a path-traversal attempt) or cannot be resolved.
+func resolveWithinStaticRoot(staticRoot string, requestPath string) (string, bool) {
+	absRoot, rootErr := filepath.Abs(staticRoot)
+	if rootErr != nil {
+		return "", false
+	}
+
+	absPath, pathErr := filepath.Abs(filepath.Join(absRoot, requestPath))
+	if pathErr != nil {
+		return "", false
+	}
+
+	// The resolved path is safe only when it is the root itself or lives
+	// underneath it. Comparing against absRoot+separator avoids treating a
+	// sibling directory with a shared prefix (e.g. "/srv/static-evil" for a
+	// "/srv/static" root) as contained.
+	if absPath != absRoot && !strings.HasPrefix(absPath, absRoot+string(filepath.Separator)) {
+		return "", false
+	}
+
+	return absPath, true
+}
+
 func (config *StaticConfig) handle(call *Call) {
 	isFS := config.fsContent != nil
 	isStatic := config.fsContent == nil
@@ -79,12 +105,18 @@ func (config *StaticConfig) handle(call *Call) {
 	path = strings.TrimPrefix(path, config.hostPath)
 
 	if isStatic {
-		// Clean the request path with a leading slash before joining it to the
-		// static directory. filepath.Clean("/"+path) resolves and collapses any
-		// "../" segments so the result can never escape the static root. Without
-		// this, a request such as "/../../etc/passwd" would let an attacker
-		// stat (and probe the existence of) arbitrary files outside staticPath.
-		path = filepath.Join(config.staticPath, filepath.Clean("/"+path))
+		// Resolve the requested path within the static directory and verify the
+		// result stays inside it. This rejects path-traversal attempts (e.g.
+		// "/../../etc/passwd") that would otherwise let an attacker stat (and
+		// probe the existence of) or serve files outside the static root.
+		safePath, withinRoot := resolveWithinStaticRoot(config.staticPath, path)
+		if !withinRoot {
+			call.Status(http.StatusNotFound)
+			call.Text("404 page not found")
+			return
+		}
+
+		path = safePath
 	}
 
 	// check whether a file exists at the given path
