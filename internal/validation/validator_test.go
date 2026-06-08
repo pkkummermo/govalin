@@ -73,6 +73,15 @@ func TestMinLength(t *testing.T) {
 		{"below minimum", "ab", 3, true},
 		{"empty string", "", 3, true},
 		{"zero minimum", "a", 0, false},
+		// Multi-byte characters must be counted as runes, not bytes.
+		// "café" is 4 runes but 5 bytes, so it must satisfy a minimum of 4.
+		{"multibyte meets minimum by runes", "café", 4, false},
+		// 4 runes is below a minimum of 5, even though len() reports 5 bytes.
+		{"multibyte below minimum by runes", "café", 5, true},
+		// "日本" is 2 runes but 6 bytes; it must fail a minimum of 3.
+		{"cjk below minimum by runes", "日本", 3, true},
+		// "👍" is 1 rune but 4 bytes; it must fail a minimum of 2.
+		{"emoji below minimum by runes", "👍", 2, true},
 	}
 
 	for _, tt := range tests {
@@ -104,6 +113,15 @@ func TestMaxLength(t *testing.T) {
 		{"empty string", "", 3, false},
 		{"zero maximum", "", 0, false},
 		{"zero maximum with content", "a", 0, true},
+		// Multi-byte characters must be counted as runes, not bytes.
+		// "café" is 4 runes but 5 bytes, so it must satisfy a maximum of 4.
+		{"multibyte at maximum by runes", "café", 4, false},
+		// "日本語" is 3 runes but 9 bytes; it must satisfy a maximum of 3.
+		{"cjk at maximum by runes", "日本語", 3, false},
+		// "👍👍" is 2 runes but 8 bytes; it must satisfy a maximum of 2.
+		{"emoji within maximum by runes", "👍👍", 2, false},
+		// 5 runes exceeds a maximum of 4, even though that is allowed by bytes.
+		{"multibyte above maximum by runes", "héllo", 4, true},
 	}
 
 	for _, tt := range tests {
