@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/pkkummermo/govalin/internal/validation"
 )
@@ -58,7 +59,7 @@ func (v *StringValidator) Required() *StringValidator {
 // MinLength adds a minimum length validation rule.
 func (v *StringValidator) MinLength(minimum int) *StringValidator {
 	v.rules = append(v.rules, func(value, fieldName string) error {
-		if len(value) < minimum {
+		if utf8.RuneCountInString(value) < minimum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
 				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d characters long", minimum)),
@@ -72,7 +73,7 @@ func (v *StringValidator) MinLength(minimum int) *StringValidator {
 // MaxLength adds a maximum length validation rule.
 func (v *StringValidator) MaxLength(maximum int) *StringValidator {
 	v.rules = append(v.rules, func(value, fieldName string) error {
-		if len(value) > maximum {
+		if utf8.RuneCountInString(value) > maximum {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
 				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d characters long", maximum)),
