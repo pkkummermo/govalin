@@ -79,8 +79,12 @@ func (config *StaticConfig) handle(call *Call) {
 	path = strings.TrimPrefix(path, config.hostPath)
 
 	if isStatic {
-		// prepend the path with the path to the static directory
-		path = filepath.Join(config.staticPath, path)
+		// Clean the request path with a leading slash before joining it to the
+		// static directory. filepath.Clean("/"+path) resolves and collapses any
+		// "../" segments so the result can never escape the static root. Without
+		// this, a request such as "/../../etc/passwd" would let an attacker
+		// stat (and probe the existence of) arbitrary files outside staticPath.
+		path = filepath.Join(config.staticPath, filepath.Clean("/"+path))
 	}
 
 	// check whether a file exists at the given path

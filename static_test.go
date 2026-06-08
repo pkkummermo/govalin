@@ -135,6 +135,46 @@ func TestStaticFolder(t *testing.T) {
 	})
 }
 
+func TestStaticFolderPathTraversal(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+			staticConfig.WithStaticPath("internal/testdata/static")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		// Encoded "../" segments survive client-side URL normalization and reach
+		// the handler as ".." in the request path. They must not be allowed to
+		// escape the configured static root and probe/serve files such as the
+		// repository's README.md, three levels above internal/testdata/static.
+		traversals := []string{
+			"/static/%2e%2e/%2e%2e/%2e%2e/README.md",
+			"/static/..%2f..%2f..%2fREADME.md",
+			"/static/%2e%2e/%2e%2e/%2e%2e/static.go",
+		}
+
+		for _, attempt := range traversals {
+			response := http.GetResponse(attempt)
+			body, _ := io.ReadAll(response.Body)
+
+			assert.Equal(
+				t,
+				404,
+				response.StatusCode,
+				"Traversal attempt %q should not resolve to a file outside the static root",
+				attempt,
+			)
+			assert.NotContains(
+				t,
+				string(body),
+				"Govalin",
+				"Traversal attempt %q must not leak contents of files outside the static root",
+				attempt,
+			)
+		}
+	})
+}
+
 func TestStaticFolderSPAMode(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Static("/staticspa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {

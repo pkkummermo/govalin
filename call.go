@@ -127,9 +127,16 @@ func addNewSessionToCall(call *Call) error {
 	}
 
 	_, cookieErr := call.Cookie(sessionCookieName, &http.Cookie{
-		Value:    sessionID,
-		Expires:  time.Now().Add(call.config.server.sessionExpireTime),
+		Value:   sessionID,
+		Expires: time.Now().Add(call.config.server.sessionExpireTime),
+		Path:    "/",
+		// Harden the session cookie: HttpOnly keeps it out of reach of
+		// JavaScript, Secure restricts it to HTTPS transport (browsers still
+		// honour this for http://localhost during development), and SameSite=Lax
+		// mitigates CSRF while allowing top-level navigations.
 		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
 	})
 	if cookieErr != nil {
 		slog.Error("Failed to set session cookie", "err", cookieErr)
