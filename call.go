@@ -130,12 +130,14 @@ func addNewSessionToCall(call *Call) error {
 		Value:   sessionID,
 		Expires: time.Now().Add(call.config.server.sessionExpireTime),
 		Path:    "/",
-		// Harden the session cookie: HttpOnly keeps it out of reach of
-		// JavaScript, Secure restricts it to HTTPS transport (browsers still
-		// honour this for http://localhost during development), and SameSite=Lax
-		// mitigates CSRF while allowing top-level navigations.
+		// Harden the session cookie. HttpOnly keeps it out of reach of
+		// JavaScript and SameSite=Lax mitigates CSRF while allowing top-level
+		// navigations. Secure is enabled whenever the request is served over
+		// HTTPS (directly or behind a TLS-terminating proxy) so the cookie is
+		// restricted to secure transport in production without breaking
+		// plain-HTTP local development.
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   call.isSecure(),
 		SameSite: http.SameSiteLaxMode,
 	})
 	if cookieErr != nil {
@@ -271,6 +273,17 @@ func (call *Call) UserAgent() string {
 // URL returns the requested URI.
 func (call *Call) URL() *url.URL {
 	return call.req.URL
+}
+
+// isSecure reports whether the current request was served over a secure (HTTPS)
+// transport, either directly via TLS or through a TLS-terminating proxy that
+// forwards the original scheme using the X-Forwarded-Proto header.
+func (call *Call) isSecure() bool {
+	if call.req.TLS != nil {
+		return true
+	}
+
+	return strings.EqualFold(call.Header(headers.XForwardedProto), "https")
 }
 
 // Get or set a Cookie by name and value
