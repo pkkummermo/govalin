@@ -12,6 +12,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// findCookie returns the first cookie matching name, or nil if none is present.
+func findCookie(cookies []*http.Cookie, name string) *http.Cookie {
+	for _, cookie := range cookies {
+		if cookie.Name == name {
+			return cookie
+		}
+	}
+
+	return nil
+}
+
 func TestQueryParam(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Get("/query", func(call *govalin.Call) {
@@ -205,6 +216,47 @@ func TestSession(t *testing.T) {
 			t,
 			setCookieHeader,
 			"Should set session cookie if a session is not found",
+		)
+	})
+
+	// Verify the session cookie is hardened: HttpOnly, SameSite=Lax and Path=/.
+	// The Secure attribute must follow the request transport so the cookie works
+	// over plain HTTP locally but is restricted to HTTPS when forwarded as such.
+	// Presenting an unknown session id forces the server to issue a fresh cookie
+	// regardless of any cookie persisted by the shared test client jar.
+	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
+		return govalin.New(func(config *govalin.Config) {
+			config.EnableSessions()
+		}).Get("/govalin", func(call *govalin.Call) {
+			call.Text("govalin")
+		})
+	}, func(govalinHttp govalintesting.GovalinHTTP) {
+		unknownSession := &http.Cookie{Name: "govalin-session", Value: "non-existent"}
+
+		response, err := govalinHttp.Raw().Begin().
+			WithCookie(unknownSession).
+			Get(govalinHttp.Host + "/govalin")
+		assert.NoError(t, err, "Request errored")
+
+		sessionCookie := findCookie(response.Cookies(), "govalin-session")
+		assert.NotNil(t, sessionCookie, "Should set the session cookie")
+		assert.True(t, sessionCookie.HttpOnly, "Session cookie should be HttpOnly")
+		assert.Equal(t, http.SameSiteLaxMode, sessionCookie.SameSite, "Session cookie should be SameSite=Lax")
+		assert.Equal(t, "/", sessionCookie.Path, "Session cookie should be scoped to root path")
+		assert.False(t, sessionCookie.Secure, "Session cookie should not be Secure over plain HTTP")
+
+		secureResponse, err := govalinHttp.Raw().Begin().
+			WithCookie(unknownSession).
+			WithHeader("X-Forwarded-Proto", "https").
+			Get(govalinHttp.Host + "/govalin")
+		assert.NoError(t, err, "Request errored")
+
+		forwardedCookie := findCookie(secureResponse.Cookies(), "govalin-session")
+		assert.NotNil(t, forwardedCookie, "Should set the session cookie")
+		assert.True(
+			t,
+			forwardedCookie.Secure,
+			"Session cookie should be Secure when the request is forwarded as HTTPS",
 		)
 	})
 
