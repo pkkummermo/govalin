@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Rule represents a single validation rule.
@@ -66,7 +67,7 @@ func Required() Rule[string] {
 // MinLength validates minimum string length.
 func MinLength(minimum int) Rule[string] {
 	return func(value string, fieldName string) *Error {
-		if len(value) < minimum {
+		if utf8.RuneCountInString(value) < minimum {
 			return NewError(NewErrorResponse(
 				http.StatusBadRequest,
 				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d characters long", minimum)),
@@ -79,7 +80,7 @@ func MinLength(minimum int) Rule[string] {
 // MaxLength validates maximum string length.
 func MaxLength(maximum int) Rule[string] {
 	return func(value string, fieldName string) *Error {
-		if len(value) > maximum {
+		if utf8.RuneCountInString(value) > maximum {
 			return NewError(NewErrorResponse(
 				http.StatusBadRequest,
 				NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d characters long", maximum)),
