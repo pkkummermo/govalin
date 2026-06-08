@@ -54,6 +54,53 @@ func TestValidatedQueryParam(t *testing.T) {
 	})
 }
 
+// TestValidatedQueryParamRuneLength verifies that MinLength/MaxLength on the
+// public StringValidator count runes rather than bytes, so multi-byte input
+// (accented characters, emoji) is measured by character count.
+func TestValidatedQueryParamRuneLength(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		// Requires at least 5 characters.
+		app.Post("/validate-rune-min", func(call *govalin.Call) {
+			name, err := call.ValidatedQueryParam("name").MinLength(5).Get()
+			if err != nil {
+				call.Error(err)
+				return
+			}
+			call.JSON(map[string]string{"message": "Valid name", "name": name})
+		})
+
+		// Allows at most 4 characters.
+		app.Post("/validate-rune-max", func(call *govalin.Call) {
+			name, err := call.ValidatedQueryParam("name").MaxLength(4).Get()
+			if err != nil {
+				call.Error(err)
+				return
+			}
+			call.JSON(map[string]string{"message": "Valid name", "name": name})
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		// "café" is 4 runes but 5 bytes. It must fail a minimum of 5 runes,
+		// even though a byte-based check (len == 5) would have passed it.
+		response := http.Post("/validate-rune-min?name=caf%C3%A9", map[string]string{})
+		assert.Contains(t, response, "Must be at least 5 characters long")
+
+		// "café" (4 runes / 5 bytes) must satisfy a maximum of 4 runes,
+		// even though a byte-based check (len == 5) would have rejected it.
+		response = http.Post("/validate-rune-max?name=caf%C3%A9", map[string]string{})
+		assert.Contains(t, response, "Valid name")
+
+		// "👍👍" is 2 runes but 8 bytes; it must satisfy a maximum of 4 runes.
+		response = http.Post("/validate-rune-max?name=%F0%9F%91%8D%F0%9F%91%8D", map[string]string{})
+		assert.Contains(t, response, "Valid name")
+
+		// "héllo" is 5 runes; it must exceed a maximum of 4 runes.
+		response = http.Post("/validate-rune-max?name=h%C3%A9llo", map[string]string{})
+		assert.Contains(t, response, "Must be at most 4 characters long")
+	})
+}
+
 func TestValidatedPathParam(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.Post("/validate-path/{username}", func(call *govalin.Call) {
