@@ -386,13 +386,17 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		map[string]string{},
 	)
 
-	// Look for before handlers
-	if !server.matchBeforeHandlers(&call) && !call.bypassLifecycle {
-		// Before handler returned false, meaning short circuit, meaning we need to log access log here
-		server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
-		return
+	// Log the access log once, on every exit path, so requests that take over
+	// the lifecycle (e.g. HTTPServe) or short-circuit in a before handler are
+	// logged consistently and only when access logging is enabled.
+	if server.config.server.accessLogEnabled {
+		defer func() {
+			server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+		}()
 	}
-	if call.bypassLifecycle {
+
+	// Look for before handlers
+	if !server.matchBeforeHandlers(&call) || call.bypassLifecycle {
 		return
 	}
 
@@ -412,10 +416,6 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	// ie 404 / not found
 	if call.Status() == 0 {
 		server.notFoundHandler(&call)
-	}
-
-	if server.config.server.accessLogEnabled {
-		server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
 	}
 }
 
