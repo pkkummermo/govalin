@@ -104,6 +104,18 @@ _Avoid_: erroring normalizer, validation-as-transform
 Rules and transforms apply in written order; a transform only affects checks placed after it in the chain.
 _Avoid_: implicit reordering, position-independent transforms
 
+**Buffered status**:
+A status code set via `Status()` that is held on the call and not yet committed to the response writer.
+_Avoid_: eager status write, status sent immediately on set
+
+**Status flush**:
+Committing the buffered status to the writer. Happens on the first body write (JSON/Text/HTML/Redirect) or, when no body is written, exactly once at the end of the request lifecycle.
+_Avoid_: implicit 200 on unflushed status, multiple status writes
+
+**Lifecycle bypass**:
+A request whose handler takes ownership of the raw writer (HTTPServe); govalin performs no status flush or response finalization for it.
+_Avoid_: framework-managed finalization on raw handlers, double-writing a bypassed response
+
 ## Relationships
 
 - A **Race-clean build** is a required outcome of the **Stability gate**
@@ -129,6 +141,9 @@ _Avoid_: implicit reordering, position-independent transforms
 - **Scope-locked PR1** constrains initial delivery to test-helper race fix and CI enforcement updates
 - A **Validation rule** asserts on an input without changing it; a **Transform step** changes the value and never fails
 - **Chain order significance** means a **Transform step** only reaches a **Validation rule** placed after it
+- A **Buffered status** becomes visible to the client only after a **Status flush**
+- A **Status flush** happens at most once per request: on first body write, or otherwise at end of lifecycle
+- **Lifecycle bypass** suppresses **Status flush** — the handler owns response finalization
 
 ## Example dialogue
 

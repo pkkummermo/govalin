@@ -395,6 +395,21 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		}()
 	}
 
+	// Flush the buffered status on every non-bypass exit path so a handler (or a
+	// short-circuiting before handler) that sets a status but writes no body
+	// still sends that status instead of an implicit 200 OK. The bypass check is
+	// evaluated when the defer runs, not when it is registered, because
+	// HTTPServe sets bypassLifecycle inside the handler which runs after this
+	// point; a snapshot here would wrongly flush over a raw response. Registered
+	// after the access-log defer so LIFO ordering flushes before the log records
+	// the status. sendStatusOrDefault is idempotent, so an already-written
+	// response is left untouched.
+	defer func() {
+		if !call.bypassLifecycle {
+			call.sendStatusOrDefault()
+		}
+	}()
+
 	// Look for before handlers
 	if !server.matchBeforeHandlers(&call) || call.bypassLifecycle {
 		return

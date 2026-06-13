@@ -176,6 +176,45 @@ func TestCookies(t *testing.T) {
 			"govalin=govalin",
 			"Should set correct header when setting cookie",
 		)
+		assert.Equal(
+			t,
+			204,
+			response.StatusCode,
+			"Should send the status set by the handler even with no body",
+		)
+	})
+}
+
+func TestStatusOnlyResponse(t *testing.T) {
+	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
+		app.Get("/nobody", func(call *govalin.Call) {
+			call.Status(204)
+		})
+		app.Before("/guarded", func(call *govalin.Call) bool {
+			call.Status(401)
+			return false
+		})
+		app.Get("/guarded", func(call *govalin.Call) {
+			call.Text("should never run")
+		})
+
+		return app
+	}, func(http govalintesting.GovalinHTTP) {
+		nobodyResponse := http.GetResponse("/nobody")
+		assert.Equal(
+			t,
+			204,
+			nobodyResponse.StatusCode,
+			"A handler that sets a status but writes no body should send that status",
+		)
+
+		guardedResponse := http.GetResponse("/guarded")
+		assert.Equal(
+			t,
+			401,
+			guardedResponse.StatusCode,
+			"A before handler that short-circuits with a status but no body should send that status",
+		)
 	})
 }
 
