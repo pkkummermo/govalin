@@ -459,10 +459,13 @@ func (call *Call) HeaderOrDefault(key string, def string) string {
 	return value
 }
 
-// Set HTTP status that will be used on JSON/Text/HTML calls
+// Set HTTP status that will be used on the response
 //
-// If the status has already been set, a warning will be printed. The status will not be
-// written to the response until a JSON/Text/HTML-call is made.
+// The status is buffered on the call and committed to the response on the first
+// body write (JSON/Text/HTML/Redirect) or, if no body is written, once at the
+// end of the request lifecycle. Setting a status alone is therefore enough to
+// send it. Requests that take over the raw writer (HTTPServe) are never flushed
+// by the framework.
 func (call *Call) Status(statusCode ...int) int {
 	if len(statusCode) > 0 {
 		call.status = statusCode[0]
