@@ -79,6 +79,18 @@ func TestValidateText(t *testing.T) {
 	assert.Error(t, validateText(map[string]string{"k": overLimit}))
 }
 
+func TestAdvertisementMessage(t *testing.T) {
+	msg := New().
+		InstanceName("govalin-app").
+		ServiceType("_http._tcp").
+		Hostname("myhost.local").
+		advertisementMessage(7654)
+
+	assert.Contains(t, msg, "govalin-app._http._tcp.local")
+	assert.Contains(t, msg, "myhost.local:7654")
+	assert.Contains(t, msg, "dns-sd -B _http._tcp")
+}
+
 func TestNormalizeHost(t *testing.T) {
 	assert.Equal(t, "myhost", normalizeHost("myhost"))
 	assert.Equal(t, "myhost", normalizeHost("myhost.local"))

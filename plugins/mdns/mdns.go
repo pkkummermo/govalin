@@ -135,6 +135,8 @@ func (config *Config) Apply(app *govalin.App) {
 		return
 	}
 
+	slog.Info(config.advertisementMessage(port))
+
 	ctx, cancel := context.WithCancel(context.Background())
 	config.cancel = cancel
 	config.done = make(chan struct{})
@@ -208,6 +210,17 @@ func (config *Config) checkConfiguration() {
 		slog.Error(fmt.Sprintf("mDNS plugin: %v", err))
 		os.Exit(1)
 	}
+}
+
+// advertisementMessage describes where the service is advertised and what it
+// points to, for the success log line emitted once setup succeeds.
+func (config *Config) advertisementMessage(port uint16) string {
+	instance := config.instanceName + "." + config.serviceType + "." + localDomain
+	host := normalizeHost(config.hostname) + "." + localDomain
+
+	return fmt.Sprintf("mDNS plugin: advertising %q → %s:%d on the local network "+
+		"(browse with \"dns-sd -B %s\" or \"avahi-browse -a\")",
+		instance, host, port, config.serviceType)
 }
 
 func (config *Config) warnRuntimeFailure(err error) {
