@@ -10,7 +10,20 @@ require (
 	golang.org/x/exp v0.0.0-20260603202125-055de637280b
 )
 
-require github.com/gorilla/websocket v1.5.3
+require (
+	github.com/brutella/dnssd v1.2.14
+	github.com/gorilla/websocket v1.5.3
+)
+
+require (
+	github.com/miekg/dns v1.1.61 // indirect
+	github.com/vishvananda/netlink v1.2.1-beta.2 // indirect
+	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae // indirect
+	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/tools v0.45.0 // indirect
+)
 
 require (
 	github.com/aymerick/douceur v0.2.0 // indirect
