@@ -190,7 +190,7 @@ func (sv *StructValidator) Field(fieldName string, validator func(interface{}) *
 // Validate validates a struct.
 func (sv *StructValidator) Validate(data interface{}) *Error {
 	v := reflect.ValueOf(data)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return NewError(NewErrorResponse(
 				http.StatusBadRequest,

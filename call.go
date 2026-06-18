@@ -609,9 +609,10 @@ func (call *Call) SessionAttrOrDefault(key string, def any) any {
 func (call *Call) Error(err error) {
 	var govalinErr *govalinError
 	if errors.As(err, &govalinErr) {
-		if govalinErr.errorType == userError {
+		switch govalinErr.errorType {
+		case userError:
 			call.Status(http.StatusBadRequest)
-		} else if govalinErr.errorType == serverError {
+		case serverError:
 			call.Status(http.StatusInternalServerError)
 		}
 

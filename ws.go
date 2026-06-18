@@ -160,7 +160,7 @@ func readWebsocketFunc(wsCall *WsConnection, wsConfig *WsConfig) {
 
 		if readMessageErr != nil {
 			wsConfig.OnError(readMessageErr)
-			wsCall.Close()
+			_ = wsCall.Close()
 			return
 		}
 

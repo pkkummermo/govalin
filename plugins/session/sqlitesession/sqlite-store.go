@@ -150,7 +150,7 @@ func (s *sqliteSessionStore) GetSessions(time int64) ([]session.Session, error) 
 		return nil, rows.Err()
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	ret := make([]session.Session, 0)
 	for rows.Next() {
 		sess := session.Session{}
