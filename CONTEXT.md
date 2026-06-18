@@ -116,6 +116,22 @@ _Avoid_: implicit 200 on unflushed status, multiple status writes
 A request whose handler takes ownership of the raw writer (HTTPServe); govalin performs no status flush or response finalization for it.
 _Avoid_: framework-managed finalization on raw handlers, double-writing a bypassed response
 
+**Bound port**:
+The port the server is actually listening on, read from the live listener (`listener.Addr()`), as opposed to the configured port. When the configured port is `0` the OS assigns a free port, so only the bound port is authoritative. Exposed to plugins via `App.Port()`.
+_Avoid_: configured-port-as-truth, advertising a port the server is not listening on
+
+**Service advertisement**:
+Publishing the server on the local network as a full DNS-SD service instance (instance name + service type in the `.local` domain, with SRV/TXT/PTR records) over mDNS — not merely a resolvable hostname. A registered service is both resolvable and browsable by standard discovery tooling.
+_Avoid_: hostname-only A-record publishing, "discovery means just resolving myapp.local"
+
+**Plugin complexity boundary**:
+GOVALIN core stays simple, lean, and easy to configure; any added complexity or heavier dependency (including CGo) belongs in a plugin, never core, because plugins are opt-in and not required for the framework to work. Core's dependency cost is paid by every user; a plugin's is paid only by those who import it.
+_Avoid_: feature creep into core, mandatory-by-default dependencies, CGo in the core import graph
+
+**Actionable runtime warning**:
+A non-fatal log emitted when an auxiliary runtime operation fails (e.g. mDNS registration/broadcast) must state what went wrong and what the user can do to fix it — not merely that an operation failed. Misconfiguration, by contrast, is caught early and is fatal.
+_Avoid_: "failed to start/configure" with no cause or remedy, silent runtime degradation
+
 ## Relationships
 
 - A **Race-clean build** is a required outcome of the **Stability gate**
