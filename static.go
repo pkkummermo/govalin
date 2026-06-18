@@ -66,6 +66,12 @@ Are you sure it exists on the given path: '%s'`, indexPath))
 
 	// file does not exist, serve index.html
 	call.Status(http.StatusOK)
+
+	// http.ServeFile takes over the raw writer and writes the response header
+	// itself. Bypass the lifecycle (same contract as HTTPServe) so the buffered
+	// status isn't flushed a second time, which would trigger a superfluous
+	// response.WriteHeader warning.
+	call.bypassLifecycle = true
 	http.ServeFile(*call.Raw.W, call.Raw.Req, filepath.Join(config.staticPath, "index.html"))
 }
 
@@ -165,6 +171,11 @@ func (config *StaticConfig) handle(call *Call) {
 		hostedFileSystem = http.Dir(config.staticPath)
 	}
 
+	// http.FileServer takes over the raw writer and writes the response header
+	// itself. Bypass the lifecycle (same contract as HTTPServe) so the buffered
+	// status isn't flushed a second time, which would trigger a superfluous
+	// response.WriteHeader warning.
+	call.bypassLifecycle = true
 	http.StripPrefix(
 		config.hostPath,
 		http.FileServer(hostedFileSystem),
