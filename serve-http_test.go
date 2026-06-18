@@ -12,8 +12,10 @@ import (
 func TestServeHTTP(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
 		app.HTTPServe("/httpserve", func(w http.ResponseWriter, _ *http.Request) {
-			_, err := w.Write([]byte("httpservegovalin"))
+			// Header must be written before the body; writing it afterwards is a
+			// superfluous WriteHeader call that net/http warns about.
 			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte("httpservegovalin"))
 			assert.Nil(t, err, "Should write to response writer")
 		})
 
