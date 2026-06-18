@@ -241,6 +241,14 @@ func (server *App) Start(port ...uint16) error {
 		return listenerErr
 	}
 
+	// Read the port back from the listener so the bound port is authoritative.
+	// When the configured port is 0 the OS assigns a free port, which is only
+	// reflected in listener.Addr(); without this, server.port would stay 0 and
+	// Port() would report a port the server is not listening on.
+	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok {
+		server.port = uint16(tcpAddr.Port)
+	}
+
 	// Initialize all plugins
 	for _, plugin := range server.config.server.plugins {
 		slog.Debug(fmt.Sprintf("Plugins: Running Apply for '%s'", plugin.Name()))
@@ -271,6 +279,16 @@ func (server *App) Start(port ...uint16) error {
 	}
 
 	return nil
+}
+
+// Port returns the port the server is bound to.
+//
+// After Start, this is the port the listener is actually bound to, read from
+// the live listener — so when the server is started on port 0 (OS-assigned
+// ephemeral port) this returns the real assigned port, not 0. Before Start is
+// called it returns the zero value.
+func (server *App) Port() uint16 {
+	return server.port
 }
 
 // Shutdown the govalin server
