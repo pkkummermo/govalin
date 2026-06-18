@@ -1,12 +1,70 @@
 package govalin_test
 
 import (
+	"fmt"
+	"net"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/internal/govalintesting"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestPortReflectsBoundPort(t *testing.T) {
+	var app *govalin.App
+	govalintesting.HTTPTestUtil(func(testApp *govalin.App) *govalin.App {
+		app = testApp
+		return testApp
+	}, func(http govalintesting.GovalinHTTP) {
+		hostURL, err := url.Parse(http.Host)
+		require.NoError(t, err)
+
+		assert.Equal(
+			t,
+			hostURL.Port(),
+			fmt.Sprintf("%d", app.Port()),
+			"Port() should report the port the server is bound to",
+		)
+	})
+}
+
+func TestPortReturnsOSAssignedPortWhenStartedOnZero(t *testing.T) {
+	// HTTPTestUtil always binds a pre-resolved concrete port and never exercises
+	// the OS-assigned (Start(0)) path this test covers, so this case uses a
+	// minimal bespoke start/shutdown harness.
+	startup := make(chan bool, 1)
+	app := govalin.New(func(config *govalin.Config) {
+		config.EnableAccessLog(false)
+		config.EnableStartupLog(false)
+		config.Events(func(events *govalin.ServerEvents) {
+			events.AddOnServerStartup(func() { startup <- true })
+		})
+	})
+
+	go func() {
+		if err := app.Start(0); err != nil {
+			t.Errorf("failed to start server on port 0: %v", err)
+		}
+	}()
+
+	select {
+	case <-startup:
+	case <-time.After(time.Second):
+		t.Fatal("server startup timed out")
+	}
+	defer func() { _ = app.Shutdown() }()
+
+	boundPort := app.Port()
+	assert.NotZero(t, boundPort, "Port() should return the real OS-assigned port, not 0")
+
+	// The reported port must be the one the server actually listens on.
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", boundPort), time.Second)
+	require.NoError(t, err, "server should be reachable on the port reported by Port()")
+	_ = conn.Close()
+}
 
 func TestGet(t *testing.T) {
 	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
