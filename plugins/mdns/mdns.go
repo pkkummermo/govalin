@@ -36,8 +36,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/brutella/dnssd"
+	dnssdlog "github.com/brutella/dnssd/log"
 	"github.com/pkkummermo/govalin"
 )
 
@@ -108,6 +110,8 @@ func (config *Config) OnInit(govalinConfig *govalin.Config) {
 // failures are non-fatal: they log an actionable warning and leave the HTTP
 // server untouched.
 func (config *Config) Apply(app *govalin.App) {
+	routeLibraryLogging()
+
 	port := app.Port()
 
 	service, serviceErr := dnssd.NewService(dnssd.Config{
@@ -221,6 +225,38 @@ func (config *Config) advertisementMessage(port uint16) string {
 	return fmt.Sprintf("mDNS plugin: advertising %q → %s:%d on the local network "+
 		"(browse with \"dns-sd -B %s\" or \"avahi-browse -a\")",
 		instance, host, port, config.serviceType)
+}
+
+// routeDnssdLogging guards the one-time, process-global redirection of the
+// dnssd library's logger so concurrent apps don't install it repeatedly.
+var routeDnssdLogging sync.Once
+
+// routeLibraryLogging redirects the dnssd library's package-level Info logger —
+// which otherwise writes raw, unstructured lines straight to stdout via the
+// standard log package — through slog at debug level. The library emits benign
+// Info lines such as "dnssd: unable to wait for link updates" (logged on every
+// non-Linux platform, where netlink link-change subscription is unavailable);
+// routing them keeps logging structured and out of the default-level output.
+//
+// The dnssd logger is package-global state, so this mutates logging for every
+// consumer of the library in the process; it runs at most once.
+func routeLibraryLogging() {
+	routeDnssdLogging.Do(func() {
+		dnssdlog.Info.SetFlags(0)
+		dnssdlog.Info.SetPrefix("")
+		dnssdlog.Info.SetOutput(dnssdSlogWriter{})
+	})
+}
+
+// dnssdSlogWriter adapts the dnssd library's stdlib *log.Logger output to slog,
+// emitting one debug record per logged line.
+type dnssdSlogWriter struct{}
+
+func (dnssdSlogWriter) Write(p []byte) (int, error) {
+	msg := strings.TrimSpace(string(p))
+	msg = strings.TrimSpace(strings.TrimPrefix(msg, "dnssd:"))
+	slog.Debug("mDNS plugin: " + msg)
+	return len(p), nil
 }
 
 func (config *Config) warnRuntimeFailure(err error) {
