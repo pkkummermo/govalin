@@ -57,9 +57,18 @@ func New(config ...ConfigFunc) *App {
 //
 // This is the post-construction counterpart of Config.Events, for apps built
 // elsewhere (e.g. by an application constructor or a test harness). Must be
-// called before Start; events registered after the server has started are
-// not guaranteed to fire.
+// called before Start; late registrations are ignored with a warning, since
+// Start reads the event lists without synchronization.
 func (server *App) Events(eventFunc func(serverEvents *ServerEvents)) *App {
+	if eventFunc == nil {
+		return server
+	}
+
+	if server.started {
+		slog.Warn("Events was called after Start; registration ignored. Register events before calling Start")
+		return server
+	}
+
 	eventFunc(&server.config.server.events)
 	return server
 }

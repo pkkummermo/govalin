@@ -95,14 +95,15 @@ func TestWithOptions(t *testing.T, app *govalin.App, opts Options, fn func(clien
 		}
 	})
 
+	timeout := time.NewTimer(startupTimeout)
+	defer timeout.Stop()
+
 	select {
 	case <-ready:
 	case err := <-startErr:
-		t.Errorf("govalintest: failed to start app: %v", err)
-		return
-	case <-time.After(startupTimeout):
-		t.Errorf("govalintest: app did not start within %s", startupTimeout)
-		return
+		t.Fatalf("govalintest: failed to start app: %v", err)
+	case <-timeout.C:
+		t.Fatalf("govalintest: app did not start within %s", startupTimeout)
 	}
 
 	fn(&Client{
@@ -210,6 +211,14 @@ func (client *Client) PatchResponse(path string, body any) *http.Response {
 // http.NewRequest("GET", "/path", nil) work directly.
 func (client *Client) Do(req *http.Request) *http.Response {
 	client.t.Helper()
+
+	if req == nil || req.URL == nil {
+		client.t.Fatalf("govalintest: Do requires a non-nil request with a URL; build it with http.NewRequest")
+	}
+
+	if req.Header == nil {
+		req.Header = http.Header{}
+	}
 
 	if req.URL.Scheme == "" {
 		base, err := url.Parse(client.Host)
