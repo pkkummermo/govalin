@@ -4,32 +4,30 @@ import (
 	"testing"
 
 	"github.com/pkkummermo/govalin"
-	"github.com/pkkummermo/govalin/internal/govalintesting"
+	"github.com/pkkummermo/govalin/govalintest"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServerMaxBodyReadSizeConfig(t *testing.T) {
-	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
-		newApp := govalin.New(func(config *govalin.Config) {
-			config.ServerMaxBodyReadSize(4)
-		})
+	newApp := govalin.New(func(config *govalin.Config) {
+		config.ServerMaxBodyReadSize(4)
+	})
 
-		newApp.Post("/bodysize", func(call *govalin.Call) {
-			var body string
+	newApp.Post("/bodysize", func(call *govalin.Call) {
+		var body string
 
-			err := call.BodyAs(&body)
+		err := call.BodyAs(&body)
 
-			if err != nil {
-				call.Error(err)
-			} else {
-				call.JSON(body)
-			}
-		})
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.JSON(body)
+		}
+	})
 
-		return newApp
-	}, func(http govalintesting.GovalinHTTP) {
-		response, _ := http.Raw().Post(http.Host+"/bodysize", `"aaa"`)
-		responseBody, _ := response.ToString()
+	govalintest.Test(t, newApp, func(client *govalintest.Client) {
+		response := client.PostResponse("/bodysize", `"aaa"`)
+		responseBody := readBody(t, response)
 		assert.Equal(
 			t,
 			`{"title":"Server error","status":500,"type":"https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500"}`,
@@ -38,27 +36,25 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 		)
 	})
 
-	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
-		newApp := govalin.New(func(config *govalin.Config) {
-			config.ServerMaxBodyReadSize(4)
-		})
+	newApp = govalin.New(func(config *govalin.Config) {
+		config.ServerMaxBodyReadSize(4)
+	})
 
-		newApp.Post("/bodysize", func(call *govalin.Call) {
-			var body string
+	newApp.Post("/bodysize", func(call *govalin.Call) {
+		var body string
 
-			err := call.BodyAs(&body)
+		err := call.BodyAs(&body)
 
-			if err != nil {
-				call.Error(err)
-			} else {
-				call.JSON(body)
-			}
-		})
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.JSON(body)
+		}
+	})
 
-		return newApp
-	}, func(http govalintesting.GovalinHTTP) {
-		response, _ := http.Raw().Post(http.Host+"/bodysize", `"aaaaaaaa"`)
-		responseBody, _ := response.ToString()
+	govalintest.Test(t, newApp, func(client *govalintest.Client) {
+		response := client.PostResponse("/bodysize", `"aaaaaaaa"`)
+		responseBody := readBody(t, response)
 		assert.Equal(
 			t,
 			`{"title":"Server error","status":500,"type":"https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500"}`,
@@ -67,27 +63,25 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 		)
 	})
 
-	govalintesting.HTTPTestUtil(func(_ *govalin.App) *govalin.App {
-		newApp := govalin.New(func(config *govalin.Config) {
-			config.ServerMaxBodyReadSize(4)
-		})
+	newApp = govalin.New(func(config *govalin.Config) {
+		config.ServerMaxBodyReadSize(4)
+	})
 
-		newApp.Post("/bodysize", func(call *govalin.Call) {
-			var body string
+	newApp.Post("/bodysize", func(call *govalin.Call) {
+		var body string
 
-			err := call.BodyAs(&body)
+		err := call.BodyAs(&body)
 
-			if err != nil {
-				call.Error(err)
-			} else {
-				call.JSON(body)
-			}
-		})
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.JSON(body)
+		}
+	})
 
-		return newApp
-	}, func(http govalintesting.GovalinHTTP) {
-		response, _ := http.Raw().Post(http.Host+"/bodysize", `"aa"`)
-		responseBody, _ := response.ToString()
+	govalintest.Test(t, newApp, func(client *govalintest.Client) {
+		response := client.PostResponse("/bodysize", `"aa"`)
+		responseBody := readBody(t, response)
 		assert.Equal(
 			t,
 			`"aa"`,
