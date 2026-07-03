@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/pkkummermo/govalin"
-	"github.com/pkkummermo/govalin/internal/govalintesting"
+	"github.com/pkkummermo/govalin/govalintest"
 )
 
 // superfluousWriteHeaderWarning is the exact message net/http logs when a
@@ -86,36 +86,34 @@ func TestStaticServingDoesNotDoubleWriteHeader(t *testing.T) {
 	staticRoot, _ := fs.Sub(staticTestFiles, "internal/testdata/static")
 
 	// Embedded FS, both plain and SPA mode.
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
-		app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
-			staticConfig.WithFS(staticRoot)
-		})
-		app.Static("/fs-spa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
-			staticConfig.WithFS(staticRoot).EnableSPAMode(true)
-		})
-		return app
-	}, func(http govalintesting.GovalinHTTP) {
-		http.Get("/fs/index.html")         // served via http.FileServer
-		http.Get("/fs/")                   // index via serveIndexFS
-		http.Get("/fs/sub/test.html")      // subfolder file via http.FileServer
-		http.Get("/fs/non-existing-path")  // 404 via http.FileServer
-		http.Get("/fs-spa/does-not-exist") // SPA fallback to index
+	fsApp := newTestApp()
+	fsApp.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(staticRoot)
+	})
+	fsApp.Static("/fs-spa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(staticRoot).EnableSPAMode(true)
+	})
+	govalintest.Test(t, fsApp, func(client *govalintest.Client) {
+		client.Get("/fs/index.html")         // served via http.FileServer
+		client.Get("/fs/")                   // index via serveIndexFS
+		client.Get("/fs/sub/test.html")      // subfolder file via http.FileServer
+		client.Get("/fs/non-existing-path")  // 404 via http.FileServer
+		client.Get("/fs-spa/does-not-exist") // SPA fallback to index
 	})
 
 	// On-disk static directory, both plain and SPA mode.
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
-		app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
-			staticConfig.WithStaticPath("internal/testdata/static")
-		})
-		app.Static("/static-spa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
-			staticConfig.WithStaticPath("internal/testdata/static").EnableSPAMode(true)
-		})
-		return app
-	}, func(http govalintesting.GovalinHTTP) {
-		http.Get("/static/index.html")         // served via http.FileServer
-		http.Get("/static/")                   // index via serveIndexStatic (http.ServeFile)
-		http.Get("/static/sub/test.html")      // subfolder file via http.FileServer
-		http.Get("/static/non-existing-path")  // 404 via http.FileServer
-		http.Get("/static-spa/does-not-exist") // SPA fallback to index
+	staticApp := newTestApp()
+	staticApp.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+	staticApp.Static("/static-spa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static").EnableSPAMode(true)
+	})
+	govalintest.Test(t, staticApp, func(client *govalintest.Client) {
+		client.Get("/static/index.html")         // served via http.FileServer
+		client.Get("/static/")                   // index via serveIndexStatic (http.ServeFile)
+		client.Get("/static/sub/test.html")      // subfolder file via http.FileServer
+		client.Get("/static/non-existing-path")  // 404 via http.FileServer
+		client.Get("/static-spa/does-not-exist") // SPA fallback to index
 	})
 }

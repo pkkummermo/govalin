@@ -4,57 +4,55 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/pkkummermo/govalin"
-	"github.com/pkkummermo/govalin/internal/govalintesting"
+	"github.com/pkkummermo/govalin/govalintest"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServeHTTP(t *testing.T) {
-	govalintesting.HTTPTestUtil(func(app *govalin.App) *govalin.App {
-		app.HTTPServe("/httpserve", func(w http.ResponseWriter, _ *http.Request) {
-			// Header must be written before the body; writing it afterwards is a
-			// superfluous WriteHeader call that net/http warns about.
-			w.WriteHeader(http.StatusOK)
-			_, err := w.Write([]byte("httpservegovalin"))
-			assert.Nil(t, err, "Should write to response writer")
-		})
+	app := newTestApp()
+	app.HTTPServe("/httpserve", func(w http.ResponseWriter, _ *http.Request) {
+		// Header must be written before the body; writing it afterwards is a
+		// superfluous WriteHeader call that net/http warns about.
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("httpservegovalin"))
+		assert.Nil(t, err, "Should write to response writer")
+	})
 
-		return app
-	}, func(http govalintesting.GovalinHTTP) {
+	govalintest.Test(t, app, func(client *govalintest.Client) {
 		assert.Equal(
 			t,
 			"httpservegovalin",
-			http.Get("/httpserve", nil),
+			client.Get("/httpserve"),
 			"Should create httpserve GET endpoint",
 		)
 		assert.Equal(
 			t,
 			"httpservegovalin",
-			http.Post("/httpserve", nil),
+			client.Post("/httpserve", nil),
 			"Should create httpserve POST endpoint",
 		)
 		assert.Equal(
 			t,
 			"httpservegovalin",
-			http.Patch("/httpserve", nil),
+			client.Patch("/httpserve", nil),
 			"Should create httpserve PATCH endpoint",
 		)
 		assert.Equal(
 			t,
 			"httpservegovalin",
-			http.Delete("/httpserve", nil),
+			client.Delete("/httpserve"),
 			"Should create httpserve DELETE endpoint",
 		)
 		assert.Equal(
 			t,
 			"httpservegovalin",
-			http.Options("/httpserve", nil),
+			client.Options("/httpserve"),
 			"Should create httpserve OPTIONS endpoint",
 		)
 		assert.Equal(
 			t,
 			"",
-			http.Head("/httpserve"),
+			client.Head("/httpserve"),
 			"Should create httpserve HEAD endpoint",
 		)
 	})
