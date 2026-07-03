@@ -128,6 +128,22 @@ _Avoid_: hostname-only A-record publishing, "discovery means just resolving myap
 GOVALIN core stays simple, lean, and easy to configure; any added complexity or heavier dependency (including CGo) belongs in a plugin, never core, because plugins are opt-in and not required for the framework to work. Core's dependency cost is paid by every user; a plugin's is paid only by those who import it.
 _Avoid_: feature creep into core, mandatory-by-default dependencies, CGo in the core import graph
 
+**App-under-test**:
+The user's own constructed `App` — built by their production constructor with their config, plugins, and routes — handed to the test harness as-is. The harness starts, observes, and stops it; it never builds or reconfigures the app on the user's behalf.
+_Avoid_: harness-built app, setup-callback-only testing, duplicated app wiring in tests
+
+**Startup-event readiness**:
+The test harness knows the server is ready because a server startup event fired — an explicit signal with a happens-before edge to reading the bound port — never by sleeping or polling.
+_Avoid_: sleep-based readiness, port polling, pre-allocated free ports
+
+**Status-agnostic body access**:
+Test-client helpers that return the response body return it regardless of status code; asserting on status is a separate, explicit act. Tests that exercise error handlers depend on this.
+_Avoid_: helpers that auto-fail on non-2xx, status assertions hidden inside body accessors
+
+**Test-scoped failure**:
+A test utility failure fails the calling test (`t.Fatalf`/`t.Errorf`), never the process. Process exit in a helper kills the whole test binary and destroys the test report.
+_Avoid_: `os.Exit` in test helpers, one failed request aborting the suite
+
 **Actionable runtime warning**:
 A non-fatal log emitted when an auxiliary runtime operation fails (e.g. mDNS registration/broadcast) must state what went wrong and what the user can do to fix it — not merely that an operation failed. Misconfiguration, by contrast, is caught early and is fatal.
 _Avoid_: "failed to start/configure" with no cause or remedy, silent runtime degradation
@@ -160,6 +176,9 @@ _Avoid_: "failed to start/configure" with no cause or remedy, silent runtime deg
 - A **Buffered status** becomes visible to the client only after a **Status flush**
 - A **Status flush** happens at most once per request: on first body write, or otherwise at end of lifecycle
 - **Lifecycle bypass** suppresses **Status flush** — the handler owns response finalization
+- The **App-under-test** relies on **Startup-event readiness**, which reads the **Bound port** only after the startup event fires
+- **Test-scoped failure** and **Status-agnostic body access** define the public test client's failure semantics: transport errors fail the test, HTTP error statuses do not
+- The **Plugin complexity boundary** does not exclude test tooling from the core module: a test package adds no dependency cost to consumers who never import it
 
 ## Example dialogue
 
