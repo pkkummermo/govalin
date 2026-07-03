@@ -15,8 +15,8 @@ func newTestApp(configFuncs ...govalin.ConfigFunc) *govalin.App {
 		config.EnableAccessLog(false)
 		config.EnableStartupLog(false)
 
-		if len(configFuncs) > 0 {
-			configFuncs[0](config)
+		for _, configFunc := range configFuncs {
+			configFunc(config)
 		}
 	})
 }
