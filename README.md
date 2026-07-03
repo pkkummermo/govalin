@@ -24,6 +24,35 @@ func main() {
 }
 ```
 
+## Testing your app
+
+Govalin ships a test harness, [`govalintest`](govalintest/), for testing your application over real HTTP. Hand it your own app — built by your own constructor, with your config, plugins and routes — and it starts it on an OS-assigned port, waits for it to be ready, and shuts it down when the test finishes:
+
+```go
+import (
+	"testing"
+
+	"github.com/pkkummermo/govalin/govalintest"
+)
+
+func TestMyAPI(t *testing.T) {
+	govalintest.Test(t, myapp.New(), func(client *govalintest.Client) {
+		if body := client.Get("/health"); body != "ok" {
+			t.Errorf("expected ok, got %q", body)
+		}
+	})
+}
+```
+
+A few things to know:
+
+- Failures fail the calling test (`t.Fatalf`), never the test process.
+- The body-returning verbs (`Get`, `Post`, ...) return the body regardless of status code, so you can assert on error responses. Use the `*Response` variants (`GetResponse`, ...) to assert on status codes and headers.
+- `Post`, `Put` and `Patch` send `string`, `[]byte` and `io.Reader` bodies as-is; any other value is JSON-encoded with `Content-Type: application/json`.
+- For anything custom (headers, auth, exotic verbs), build an `*http.Request` with a relative path and pass it to `client.Do(...)`, or grab the underlying client with `client.HTTP()`.
+- `client.Websocket(path)` connects a websocket to your app.
+- Harness knobs live in `govalintest.TestWithOptions(t, app, govalintest.Options{...}, fn)` — the zero value always means sane defaults.
+
 ## Motivation
 
 I love how fast and efficient go is. What I don't like, is how it doesn't create an easy way of creating HTTP APIs. Govalin focuses on pleasing those who want to create APIs without too much hassle, with a lean simple API.
