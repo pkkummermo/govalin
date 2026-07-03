@@ -52,6 +52,18 @@ func New(config ...ConfigFunc) *App {
 	}
 }
 
+// Events allows you to subscribe to server events such as startup and
+// shutdown on an already constructed App.
+//
+// This is the post-construction counterpart of Config.Events, for apps built
+// elsewhere (e.g. by an application constructor or a test harness). Must be
+// called before Start; events registered after the server has started are
+// not guaranteed to fire.
+func (server *App) Events(eventFunc func(serverEvents *ServerEvents)) *App {
+	eventFunc(&server.config.server.events)
+	return server
+}
+
 // Add a route to the given path
 //
 // Add a route which provides a scoped route function for which you can add
