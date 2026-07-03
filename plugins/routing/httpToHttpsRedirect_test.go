@@ -13,14 +13,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// readBody reads and closes the response body, returning it as a string.
+// readBody reads and closes the response body, failing the test on error.
 func readBody(t *testing.T, response *http.Response) string {
 	t.Helper()
 
 	defer func() { _ = response.Body.Close() }()
 
 	data, err := io.ReadAll(response.Body)
-	assert.Nil(t, err, "Should read response body")
+	if err != nil {
+		t.Fatalf("failed to read response body: %v", err)
+	}
 
 	return string(data)
 }
