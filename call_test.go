@@ -202,21 +202,17 @@ func TestStatusOnlyResponse(t *testing.T) {
 	})
 
 	govalintest.Test(t, app, func(client *govalintest.Client) {
-		nobodyResponse := client.GetResponse("/nobody")
-		defer func() { _ = nobodyResponse.Body.Close() }()
 		assert.Equal(
 			t,
 			204,
-			nobodyResponse.StatusCode,
+			client.GetStatus("/nobody"),
 			"A handler that sets a status but writes no body should send that status",
 		)
 
-		guardedResponse := client.GetResponse("/guarded")
-		defer func() { _ = guardedResponse.Body.Close() }()
 		assert.Equal(
 			t,
 			401,
-			guardedResponse.StatusCode,
+			client.GetStatus("/guarded"),
 			"A before handler that short-circuits with a status but no body should send that status",
 		)
 	})

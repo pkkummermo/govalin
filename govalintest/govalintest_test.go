@@ -46,6 +46,24 @@ func TestGetResponseExposesStatusAndHeaders(t *testing.T) {
 	})
 }
 
+func TestStatusVerbsReturnStatusCode(t *testing.T) {
+	app := newQuietApp().
+		Get("/status", func(call *govalin.Call) { call.Status(http.StatusNoContent) }).
+		Post("/status", func(call *govalin.Call) { call.Status(http.StatusCreated) }).
+		Put("/status", func(call *govalin.Call) { call.Status(http.StatusAccepted) }).
+		Patch("/status", func(call *govalin.Call) { call.Status(http.StatusOK) }).
+		Delete("/status", func(call *govalin.Call) { call.Status(http.StatusGone) })
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		assert.Equal(t, http.StatusNoContent, client.GetStatus("/status"), "Should return GET status")
+		assert.Equal(t, http.StatusCreated, client.PostStatus("/status", "body"), "Should return POST status")
+		assert.Equal(t, http.StatusAccepted, client.PutStatus("/status", "body"), "Should return PUT status")
+		assert.Equal(t, http.StatusOK, client.PatchStatus("/status", "body"), "Should return PATCH status")
+		assert.Equal(t, http.StatusGone, client.DeleteStatus("/status"), "Should return DELETE status")
+		assert.Equal(t, http.StatusNotFound, client.GetStatus("/no-such-path"), "Should return error status without failing")
+	})
+}
+
 func TestBodyAccessIsStatusAgnostic(t *testing.T) {
 	app := newQuietApp().Get("/teapot", func(call *govalin.Call) {
 		call.Status(http.StatusTeapot)
