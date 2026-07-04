@@ -47,8 +47,10 @@ type Options struct {
 //
 // The body-returning verbs (Get, Post, ...) return the response body
 // regardless of status code, so tests can assert on error handler responses;
-// use the *Response variants to assert on status codes and headers. The
-// caller is responsible for closing the body of a returned *http.Response.
+// the *Status variants return just the status code (closing the body for
+// you); the *Response variants return the full response for asserting on
+// status codes and headers together. The caller is responsible for closing
+// the body of a returned *http.Response.
 type Client struct {
 	// Host is the base URL of the app under test, e.g. "http://localhost:54321".
 	Host string
@@ -125,6 +127,13 @@ func (client *Client) GetResponse(path string) *http.Response {
 	return client.request(http.MethodGet, path, nil)
 }
 
+// GetStatus performs a GET request and returns the response status code,
+// discarding the body.
+func (client *Client) GetStatus(path string) int {
+	client.t.Helper()
+	return client.statusCode(client.request(http.MethodGet, path, nil))
+}
+
 // Head performs a HEAD request and returns the response body.
 func (client *Client) Head(path string) string {
 	client.t.Helper()
@@ -135,6 +144,13 @@ func (client *Client) Head(path string) string {
 func (client *Client) HeadResponse(path string) *http.Response {
 	client.t.Helper()
 	return client.request(http.MethodHead, path, nil)
+}
+
+// HeadStatus performs a HEAD request and returns the response status code,
+// discarding the body.
+func (client *Client) HeadStatus(path string) int {
+	client.t.Helper()
+	return client.statusCode(client.request(http.MethodHead, path, nil))
 }
 
 // Options performs an OPTIONS request and returns the response body.
@@ -149,6 +165,13 @@ func (client *Client) OptionsResponse(path string) *http.Response {
 	return client.request(http.MethodOptions, path, nil)
 }
 
+// OptionsStatus performs an OPTIONS request and returns the response status
+// code, discarding the body.
+func (client *Client) OptionsStatus(path string) int {
+	client.t.Helper()
+	return client.statusCode(client.request(http.MethodOptions, path, nil))
+}
+
 // Delete performs a DELETE request and returns the response body.
 func (client *Client) Delete(path string) string {
 	client.t.Helper()
@@ -159,6 +182,13 @@ func (client *Client) Delete(path string) string {
 func (client *Client) DeleteResponse(path string) *http.Response {
 	client.t.Helper()
 	return client.request(http.MethodDelete, path, nil)
+}
+
+// DeleteStatus performs a DELETE request and returns the response status code,
+// discarding the body.
+func (client *Client) DeleteStatus(path string) int {
+	client.t.Helper()
+	return client.statusCode(client.request(http.MethodDelete, path, nil))
 }
 
 // Post performs a POST request and returns the response body.
@@ -177,6 +207,13 @@ func (client *Client) PostResponse(path string, body any) *http.Response {
 	return client.request(http.MethodPost, path, body)
 }
 
+// PostStatus performs a POST request and returns the response status code,
+// discarding the body. See Post for body semantics.
+func (client *Client) PostStatus(path string, body any) int {
+	client.t.Helper()
+	return client.statusCode(client.request(http.MethodPost, path, body))
+}
+
 // Put performs a PUT request and returns the response body. See Post for
 // body semantics.
 func (client *Client) Put(path string, body any) string {
@@ -191,6 +228,13 @@ func (client *Client) PutResponse(path string, body any) *http.Response {
 	return client.request(http.MethodPut, path, body)
 }
 
+// PutStatus performs a PUT request and returns the response status code,
+// discarding the body. See Post for body semantics.
+func (client *Client) PutStatus(path string, body any) int {
+	client.t.Helper()
+	return client.statusCode(client.request(http.MethodPut, path, body))
+}
+
 // Patch performs a PATCH request and returns the response body. See Post for
 // body semantics.
 func (client *Client) Patch(path string, body any) string {
@@ -203,6 +247,13 @@ func (client *Client) Patch(path string, body any) string {
 func (client *Client) PatchResponse(path string, body any) *http.Response {
 	client.t.Helper()
 	return client.request(http.MethodPatch, path, body)
+}
+
+// PatchStatus performs a PATCH request and returns the response status code,
+// discarding the body. See Post for body semantics.
+func (client *Client) PatchStatus(path string, body any) int {
+	client.t.Helper()
+	return client.statusCode(client.request(http.MethodPatch, path, body))
 }
 
 // Do sends a custom request and returns the response, failing the test on
@@ -308,4 +359,10 @@ func (client *Client) bodyString(response *http.Response) string {
 	}
 
 	return string(data)
+}
+
+func (client *Client) statusCode(response *http.Response) int {
+	client.t.Helper()
+	_ = response.Body.Close()
+	return response.StatusCode
 }
