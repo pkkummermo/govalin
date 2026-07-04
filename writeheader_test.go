@@ -14,12 +14,19 @@ import (
 	"github.com/pkkummermo/govalin/govalintest"
 )
 
-// superfluousWriteHeaderWarning is the exact message net/http logs when a
-// response header is written more than once. Catching it guards against
-// handlers that delegate to the standard library file servers (or otherwise
-// take over the raw writer) without bypassing the govalin lifecycle, which
-// would flush the buffered status a second time.
-const superfluousWriteHeaderWarning = "superfluous response.WriteHeader call"
+// writeHeaderWarnings are the net/http log messages that signal a handler took
+// over the raw writer without bypassing the govalin lifecycle, so the buffered
+// status got flushed a second time. Catching them guards against regressions:
+//   - "superfluous response.WriteHeader call" — a second WriteHeader on a
+//     normal response (e.g. a handler delegating to a standard-library file
+//     server without bypassing the lifecycle).
+//   - "response.WriteHeader on hijacked connection" — a WriteHeader on a
+//     connection a handler already hijacked (e.g. a websocket upgrade without a
+//     lifecycle bypass).
+var writeHeaderWarnings = []string{
+	"superfluous response.WriteHeader call",
+	"response.WriteHeader on hijacked connection",
+}
 
 // safeBuffer is a concurrency-safe buffer. net/http logs warnings from the
 // per-connection goroutines that serve requests, so writes to the capture
@@ -50,8 +57,9 @@ var logCapture = &safeBuffer{}
 
 // TestMain installs a package-wide guard: it makes the slog default handler tee
 // every record into an in-memory buffer for the duration of the run, then fails
-// the whole run if any test triggered a superfluous response.WriteHeader
-// warning. Capturing at the slog layer (rather than via log.SetOutput) is what
+// the whole run if any test triggered one of the writeHeaderWarnings (a second
+// WriteHeader on a normal response, or a WriteHeader on an already-hijacked
+// connection). Capturing at the slog layer (rather than via log.SetOutput) is what
 // makes this robust: slog.SetDefault re-routes the standard log package — where
 // net/http emits the warning — through the current slog handler, and the
 // access-log tests that swap the slog default restore it to whatever was
@@ -66,12 +74,16 @@ func TestMain(m *testing.M) {
 
 	slog.SetDefault(previous)
 
-	if captured := logCapture.String(); strings.Contains(captured, superfluousWriteHeaderWarning) {
-		for _, line := range strings.Split(captured, "\n") {
-			if strings.Contains(line, superfluousWriteHeaderWarning) {
+	failed := false
+	for _, line := range strings.Split(logCapture.String(), "\n") {
+		for _, warning := range writeHeaderWarnings {
+			if strings.Contains(line, warning) {
 				_, _ = os.Stderr.WriteString("FAIL: " + line + "\n")
+				failed = true
 			}
 		}
+	}
+	if failed {
 		os.Exit(1)
 	}
 

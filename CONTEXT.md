@@ -113,7 +113,7 @@ Committing the buffered status to the writer. Happens on the first body write (J
 _Avoid_: implicit 200 on unflushed status, multiple status writes
 
 **Lifecycle bypass**:
-A request whose handler takes ownership of the raw writer (HTTPServe); govalin performs no status flush or response finalization for it.
+A request whose handler takes ownership of the raw writer (HTTPServe, or a websocket upgrade that hijacks the connection); govalin performs no status flush or response finalization for it.
 _Avoid_: framework-managed finalization on raw handlers, double-writing a bypassed response
 
 **Bound port**:
