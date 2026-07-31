@@ -10,6 +10,8 @@ const (
 	defaultPort                      = 6060               // govalin default port.
 	defaultMaxReadTimeout            = 10                 // maximum read timeout for requests.
 	defaultMaxBodyReadSize     int64 = 4096               //  Default max body read size.
+	defaultMaxMultipartMemory  int64 = 32 << 20           // Default in-memory budget for multipart parts.
+	defaultMaxMultipartSize    int64 = 128 << 20          // Default max size of a multipart body.
 	defaultShutdownTimeoutInMS       = 200                // Max time for shutdown.
 	defaultSessionExpireTime         = 3600 * time.Second // Default session expire time.
 )
@@ -22,6 +24,8 @@ type serverConfig struct {
 	port                uint16
 	maxReadTimeout      int64
 	maxBodyReadSize     int64
+	maxMultipartMemory  int64
+	maxMultipartSize    int64
 	shutdownTimeoutInMS int64
 	accessLogEnabled    bool
 	startupLogEnabled   bool
@@ -85,6 +89,24 @@ func (config *Config) ServerMaxBodyReadSize(maxReadSize int64) *Config {
 	return config
 }
 
+// ServerMaxMultipartMemory sets how much of a multipart form is held in memory.
+//
+// Parts beyond it spill to temporary files. It does not cap the request itself;
+// use ServerMaxMultipartSize for that.
+func (config *Config) ServerMaxMultipartMemory(maxMemory int64) *Config {
+	config.server.maxMultipartMemory = maxMemory
+	return config
+}
+
+// ServerMaxMultipartSize sets the max size to accept for a multipart request body.
+//
+// Uploads are bounded by this rather than by ServerMaxBodyReadSize, whose
+// default is sized for JSON payloads.
+func (config *Config) ServerMaxMultipartSize(maxSize int64) *Config {
+	config.server.maxMultipartSize = maxSize
+	return config
+}
+
 // ServerMaxReadTimeout sets the max read timeout for requests towards the Govalin server.
 func (config *Config) ServerMaxReadTimeout(timeout int64) *Config {
 	config.server.maxReadTimeout = timeout
@@ -132,6 +154,8 @@ func newConfig() *Config {
 			port:                defaultPort,
 			maxReadTimeout:      defaultMaxReadTimeout,
 			maxBodyReadSize:     defaultMaxBodyReadSize,
+			maxMultipartMemory:  defaultMaxMultipartMemory,
+			maxMultipartSize:    defaultMaxMultipartSize,
 			shutdownTimeoutInMS: defaultShutdownTimeoutInMS,
 			sessionsEnabled:     false,
 			accessLogEnabled:    true,

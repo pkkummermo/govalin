@@ -144,6 +144,27 @@ _Avoid_: helpers that auto-fail on non-2xx, status assertions hidden inside body
 A test utility failure fails the calling test (`t.Fatalf`/`t.Errorf`), never the process. Process exit in a helper kills the whole test binary and destroys the test report.
 _Avoid_: `os.Exit` in test helpers, one failed request aborting the suite
 
+**Body size limit**:
+The maximum request body the server will accept and read into memory, covering JSON/raw bodies and
+URL-encoded forms. Enforced on every path that reads a body, never left to net/http's own default.
+_Avoid_: per-path limits, "the framework caps it somewhere"
+
+**Multipart size limit**:
+The total size ceiling for a multipart request body. Separate from the **Body size limit**, whose
+default is sized for JSON payloads and would reject every upload.
+_Avoid_: one limit for all body shapes, uncapped uploads
+
+**Multipart memory budget**:
+How much of a multipart form is held in memory before parts spill to temporary files. Bounds memory
+pressure only — it is not a limit on what the server accepts.
+_Avoid_: budget-as-size-cap, zero budget forcing every upload to disk
+
+**Declared-length rejection**:
+Refusing a body whose `Content-Length` already exceeds its limit, before reading a byte, rather than
+letting the read trip the limiter. Keeps a marginally-oversized request from costing a connection
+teardown.
+_Avoid_: read-then-discard, limiter-only enforcement
+
 **Actionable runtime warning**:
 A non-fatal log emitted when an auxiliary runtime operation fails (e.g. mDNS registration/broadcast) must state what went wrong and what the user can do to fix it — not merely that an operation failed. Misconfiguration, by contrast, is caught early and is fatal.
 _Avoid_: "failed to start/configure" with no cause or remedy, silent runtime degradation
@@ -179,6 +200,8 @@ _Avoid_: "failed to start/configure" with no cause or remedy, silent runtime deg
 - The **App-under-test** relies on **Startup-event readiness**, which reads the **Bound port** only after the startup event fires
 - **Test-scoped failure** and **Status-agnostic body access** define the public test client's failure semantics: transport errors fail the test, HTTP error statuses do not
 - The **Plugin complexity boundary** does not exclude test tooling from the core module: a test package adds no dependency cost to consumers who never import it
+- The **Body size limit** and the **Multipart size limit** bound what the server accepts; the **Multipart memory budget** bounds only where an accepted upload is stored
+- **Declared-length rejection** is the first enforcement step for every limit, with the limiter as the fallback for bodies of unknown length
 
 ## Example dialogue
 

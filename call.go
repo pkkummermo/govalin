@@ -46,6 +46,8 @@ type Call struct {
 	pathParams      map[string]string
 	bodyBytes       []byte
 	bodyErr         error
+	formParsed      bool
+	formErr         error
 	charset         string
 	session         session.Session
 	Raw             raw // Raw contains the raw request and response
@@ -160,6 +162,28 @@ var errBodyTooLarge = validation.NewError(validation.NewErrorResponse(
 	),
 ))
 
+// isBodyTooLarge reports whether a read failed because the body outgrew its limit.
+func isBodyTooLarge(err error) bool {
+	var maxBytesErr *http.MaxBytesError
+
+	return errors.As(err, &maxBytesErr) || errors.Is(err, multipart.ErrMessageTooLarge)
+}
+
+// limitBody caps the request body at maxSize for every reader that follows.
+//
+// A declared oversized body is rejected unread, since net/http then drains a
+// small overage and abandons a large one. Relying on MaxBytesReader alone would
+// force a connection teardown even on a body that is barely over.
+func (call *Call) limitBody(maxSize int64) error {
+	if call.req.ContentLength > maxSize {
+		return errBodyTooLarge
+	}
+
+	call.req.Body = http.MaxBytesReader(call.w, call.req.Body, maxSize)
+
+	return nil
+}
+
 // failBody caches a body read failure. A body can only be read once, so a
 // repeated read replays the failure instead of reporting an empty body.
 func (call *Call) failBody(err error) ([]byte, error) {
@@ -172,37 +196,28 @@ func (call *Call) failBody(err error) ([]byte, error) {
 // readBody reads the body as bytes and caches the value on call.
 //
 // A declared Content-Length gives an exactly sized allocation; unknown lengths
-// (chunked) fall back to a growing buffer capped by http.MaxBytesReader.
+// (chunked) fall back to a growing buffer.
 func (call *Call) readBody() ([]byte, error) {
 	if call.bodyBytes != nil || call.bodyErr != nil {
 		return call.bodyBytes, call.bodyErr
 	}
 
-	maxSize := call.config.server.maxBodyReadSize
-
-	// Reject a declared oversized body before reading a single byte. Leaving it
-	// unread is deliberate: net/http drains a small overage and keeps the
-	// connection alive, and abandons a large one. Tripping MaxBytesReader here
-	// instead would force a teardown even on a body that is barely over.
-	if call.req.ContentLength > maxSize {
-		return call.failBody(errBodyTooLarge)
+	if err := call.limitBody(call.config.server.maxBodyReadSize); err != nil {
+		return call.failBody(err)
 	}
-
-	limitedReader := http.MaxBytesReader(call.w, call.req.Body, maxSize)
 
 	var body []byte
 	var err error
 
 	if call.req.ContentLength >= 0 {
 		body = make([]byte, call.req.ContentLength)
-		_, err = io.ReadFull(limitedReader, body)
+		_, err = io.ReadFull(call.req.Body, body)
 	} else {
-		body, err = io.ReadAll(limitedReader)
+		body, err = io.ReadAll(call.req.Body)
 	}
 
 	if err != nil {
-		var maxBytesErr *http.MaxBytesError
-		if errors.As(err, &maxBytesErr) {
+		if isBodyTooLarge(err) {
 			return call.failBody(errBodyTooLarge)
 		}
 
@@ -214,51 +229,126 @@ func (call *Call) readBody() ([]byte, error) {
 	return call.bodyBytes, nil
 }
 
+// errInvalidFormData is returned when a form body cannot be parsed.
+var errInvalidFormData = validation.NewError(validation.NewErrorResponse(
+	http.StatusBadRequest,
+	validation.NewParameterErrorDetail(
+		"formData",
+		"Invalid form data",
+	),
+))
+
+// errNotMultipartForm is returned when files are requested from a form that
+// cannot carry them.
+var errNotMultipartForm = validation.NewError(validation.NewErrorResponse(
+	http.StatusBadRequest,
+	validation.NewParameterErrorDetail(
+		headers.ContentType,
+		"Files require a '"+contenttypes.MultipartFormData+"' body",
+	),
+))
+
+// errBodyAlreadyRead is returned when a form is parsed from a drained body.
+var errBodyAlreadyRead = validation.NewError(validation.NewErrorResponse(
+	http.StatusInternalServerError,
+	validation.NewParameterErrorDetail(
+		"body",
+		"Request body was already read and can no longer be parsed as a form",
+	),
+))
+
+// errMissingFormContentType is returned when a Content-Type cannot carry a form.
+var errMissingFormContentType = validation.NewError(validation.NewErrorResponse(
+	http.StatusBadRequest,
+	validation.NewParameterErrorDetail(
+		headers.ContentType,
+		"Missing or invalid '"+headers.ContentType+"' header. "+
+			"Must be '"+contenttypes.MultipartFormData+"' or "+
+			"'"+contenttypes.ApplicationFormURLEncoded+"'",
+	),
+))
+
+// cacheForm records the parse outcome so FormParam, FormParams, File and Files
+// all report the same result.
+func (call *Call) cacheForm(err error) error {
+	call.formParsed = true
+	call.formErr = err
+
+	return err
+}
+
+// toFormError reports an oversized form as 413 rather than as malformed input.
+func toFormError(err error) error {
+	if isBodyTooLarge(err) {
+		return errBodyTooLarge
+	}
+
+	return errInvalidFormData
+}
+
 // parseForm parses the internal request form based on Content-Type. If the Content-Type
 // is not recognized, it returns a validation error.
 func (call *Call) parseForm() error {
+	if call.formParsed {
+		return call.formErr
+	}
+
+	// A drained body would otherwise parse as an empty form.
+	if call.bodyBytes != nil || call.bodyErr != nil {
+		return call.cacheForm(errBodyAlreadyRead)
+	}
+
 	contentType := call.Header(headers.ContentType)
 
 	switch {
 	case strings.Contains(contentType, contenttypes.ApplicationFormURLEncoded):
-		err := call.req.ParseForm()
-		if err != nil {
-			slog.Error("Failed to parse form data", "err", err)
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(
-					"formData",
-					"Invalid form data",
-				),
-			))
-		}
-		return nil
+		return call.cacheForm(call.parseURLEncodedForm())
 	case strings.Contains(contentType, contenttypes.MultipartFormData):
-		err := call.req.ParseMultipartForm(0)
-		if err != nil {
-			slog.Error("Failed to parse form data", "err", err)
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(
-					"formData",
-					"Invalid form data",
-				),
-			))
-		}
-
-		return nil
+		return call.cacheForm(call.parseMultipartForm())
 	default:
 		slog.Warn("POST request is missing the correct content-type to parse form param")
-		return validation.NewError(validation.NewErrorResponse(
-			http.StatusBadRequest,
-			validation.NewParameterErrorDetail(
-				headers.ContentType,
-				"Missing or invalid '"+headers.ContentType+"' header. "+
-					"Must be '"+contenttypes.MultipartFormData+"' or "+
-					"'"+contenttypes.ApplicationFormURLEncoded+"'",
-			),
-		))
+		return call.cacheForm(errMissingFormContentType)
 	}
+}
+
+func (call *Call) parseURLEncodedForm() error {
+	if err := call.limitBody(call.config.server.maxBodyReadSize); err != nil {
+		return err
+	}
+
+	if err := call.req.ParseForm(); err != nil {
+		slog.Error("Failed to parse form data", "err", err)
+		return toFormError(err)
+	}
+
+	return nil
+}
+
+func (call *Call) parseMultipartForm() error {
+	if err := call.limitBody(call.config.server.maxMultipartSize); err != nil {
+		return err
+	}
+
+	if err := call.req.ParseMultipartForm(call.config.server.maxMultipartMemory); err != nil {
+		slog.Error("Failed to parse form data", "err", err)
+		return toFormError(err)
+	}
+
+	return nil
+}
+
+// multipartForm returns the parsed multipart form, or an error when the request
+// carried a form that holds no files.
+func (call *Call) multipartForm() (*multipart.Form, error) {
+	if err := call.parseForm(); err != nil {
+		return nil, err
+	}
+
+	if call.req.MultipartForm == nil {
+		return nil, errNotMultipartForm
+	}
+
+	return call.req.MultipartForm, nil
 }
 
 func (call *Call) sendStatusOrDefault() {
@@ -360,12 +450,12 @@ func (call *Call) FormParams() (url.Values, error) {
 
 // File returns a FileHeader for given file name in the request body.
 func (call *Call) File(key string) (*multipart.FileHeader, error) {
-	err := call.parseForm()
+	form, err := call.multipartForm()
 	if err != nil {
 		return nil, err
 	}
 
-	if file, ok := call.req.MultipartForm.File[key]; ok {
+	if file, ok := form.File[key]; ok {
 		return file[0], nil
 	}
 
@@ -380,12 +470,12 @@ func (call *Call) File(key string) (*multipart.FileHeader, error) {
 
 // Files returns an array for the given file name in the request body.
 func (call *Call) Files(key string) ([]*multipart.FileHeader, error) {
-	err := call.parseForm()
+	form, err := call.multipartForm()
 	if err != nil {
 		return nil, err
 	}
 
-	if file, ok := call.req.MultipartForm.File[key]; ok {
+	if file, ok := form.File[key]; ok {
 		return file, nil
 	}
 
