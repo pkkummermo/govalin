@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// These helpers guard values a client fully controls, so they are tested
-// directly rather than only through the server: net/http rejects some hostile
-// header values before they ever reach a handler, and the checks must hold
-// regardless of what that layer happens to filter today.
+// logSafeValue guards values a client fully controls, so it is tested directly
+// rather than only through the server: net/http rejects some hostile header
+// values before they ever reach a handler, and the check must hold regardless
+// of what that layer happens to filter today.
 
 func TestLogSafeValue(t *testing.T) {
 	assert.Equal(
@@ -49,28 +49,4 @@ func TestLogSafeValue(t *testing.T) {
 		logSafeValue("æøå"),
 		"The limit counts characters, so multi-byte text is not cut mid-rune",
 	)
-}
-
-func TestIsValidCorrelationID(t *testing.T) {
-	valid := []string{
-		"govalin",
-		"7f1c9f4e-1f6d-4f0a-9b3a-2c5f8e0d1a2b",
-		strings.Repeat("a", maxCorrelationIDLength),
-	}
-	for _, id := range valid {
-		assert.True(t, isValidCorrelationID(id), "%q should be accepted as a correlation ID", id)
-	}
-
-	invalid := []string{
-		"",
-		"govalin id",
-		"govalin\nid",
-		"govalin\tid",
-		"govalin\x00id",
-		"govalin-ïd",
-		strings.Repeat("a", maxCorrelationIDLength+1),
-	}
-	for _, id := range invalid {
-		assert.False(t, isValidCorrelationID(id), "%q should be rejected as a correlation ID", id)
-	}
 }

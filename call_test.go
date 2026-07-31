@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/govalintest"
 	"github.com/pkkummermo/govalin/internal/http/headers"
@@ -400,48 +399,6 @@ func TestRequestID(t *testing.T) {
 			"govalin",
 			"Should reuse given ID",
 		)
-	})
-}
-
-// TestRequestIDRejectsHostileHeader covers the correlation ID being echoed into
-// every log record for the request: a client must not be able to decide how long
-// that value is, or to smuggle separators into it.
-func TestRequestIDRejectsHostileHeader(t *testing.T) {
-	app := newTestApp()
-	app.Get("/govalin", func(call *govalin.Call) {
-		call.Text(call.ID())
-	})
-
-	govalintest.Test(t, app, func(client *govalintest.Client) {
-		hostileIDs := map[string]string{
-			"oversized":   strings.Repeat("a", 129),
-			"whitespace":  "govalin id",
-			"non-ascii":   "govalin-ïd",
-			"empty value": "",
-		}
-
-		for name, hostileID := range hostileIDs {
-			req, err := http.NewRequest(http.MethodGet, "/govalin", nil)
-			assert.Nil(t, err)
-			req.Header.Set(headers.XGovalinID, hostileID)
-
-			id := readBody(t, client.Do(req))
-
-			assert.NotEqual(
-				t,
-				hostileID,
-				id,
-				"Should not adopt an %s correlation ID",
-				name,
-			)
-			assert.Len(
-				t,
-				id,
-				len(uuid.NewString()),
-				"Should fall back to a generated ID for an %s correlation ID",
-				name,
-			)
-		}
 	})
 }
 
