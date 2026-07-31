@@ -181,10 +181,11 @@ in content until govalin bounds it.
 _Avoid_: "it's just a header", trusting net/http to have filtered it
 
 **Log-safe value**:
-A **Request-controlled value** made fit to write to a log sink: control characters dropped, length
-bounded, and truncation marked so a cut value is never read as what the client sent. Applied by
-govalin, never assumed of the sink, because `slog.Default()` may be a text handler on a terminal.
-_Avoid_: verbatim header logging, sink-dependent escaping, silent truncation
+A **Request-controlled value** made fit to write to a log sink: length bounded, truncation marked so
+a cut value is never read as what the client sent, control characters dropped. The bound is the
+substance — no sink provides one; the scrub is defence in depth, since both standard `slog` handlers
+already escape control characters.
+_Avoid_: unbounded client values in a log line, silent truncation
 
 **Correlation ID**:
 The call ID, taken verbatim from an inbound `X-Govalin-Id` when the caller sends one and generated

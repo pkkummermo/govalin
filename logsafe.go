@@ -16,10 +16,11 @@ const (
 	truncationMarker = "…"
 )
 
-// logSafeValue makes a request-derived value safe to write to a log sink:
-// control characters (which forge line breaks and drive terminal escape
-// sequences) are dropped and the result is bounded by maxLoggedValueLength.
-// Ranging over the string also folds invalid UTF-8 into U+FFFD.
+// logSafeValue bounds a request-derived value and drops control characters,
+// marking truncation so a cut value is not read as what the client sent. The
+// bound is the point — nothing else caps a client-chosen path or user agent.
+// Scrubbing is defence in depth: slog's own handlers escape control characters,
+// but a percent-encoded path does decode into raw ones.
 func logSafeValue(value string) string {
 	var builder strings.Builder
 

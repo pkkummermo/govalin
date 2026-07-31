@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// logSafeValue guards values a client fully controls, so it is tested directly
-// rather than only through the server: net/http rejects some hostile header
-// values before they ever reach a handler, and the check must hold regardless
-// of what that layer happens to filter today.
+// logSafeValue is tested directly rather than only through the server, because
+// net/http answers 400 to a request carrying control bytes in a header and so
+// filters most hostile input before a handler ever sees it. The check must hold
+// on its own terms regardless of what that layer happens to reject today.
 
 func TestLogSafeValue(t *testing.T) {
 	assert.Equal(
@@ -23,7 +23,7 @@ func TestLogSafeValue(t *testing.T) {
 		t,
 		"forgedmsg=evil",
 		logSafeValue("forged\r\nmsg=evil"),
-		"Line breaks used to forge a second record should be dropped",
+		"Line breaks should be dropped rather than left for the sink to escape",
 	)
 	assert.Equal(
 		t,

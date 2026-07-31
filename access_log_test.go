@@ -162,9 +162,8 @@ func TestAccessLogNotFoundIsLogged(t *testing.T) {
 }
 
 // TestAccessLogSanitizesRequestDerivedValues covers the access log recording
-// values a client controls: the client must not be able to break a record into
-// two, drive terminal escape sequences through whoever reads the log, or decide
-// how many bytes one request costs the log sink.
+// values a client controls: nothing else caps them, so a request must not get
+// to decide how many bytes its log line costs.
 func TestAccessLogSanitizesRequestDerivedValues(t *testing.T) {
 	var buf syncBuffer
 	app := newAccessLogApp(true, func(app *govalin.App) {

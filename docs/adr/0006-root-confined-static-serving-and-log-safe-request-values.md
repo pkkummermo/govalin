@@ -37,22 +37,41 @@ Two behaviours follow from that and are deliberate:
 ### Values a client controls are bounded and scrubbed before they are logged
 
 The access log recorded the request path and `User-Agent` verbatim. Both are chosen by the client and
-both are unbounded: a request could decide how many bytes one log line costs, and — depending on the
-sink — smuggle control characters that break a record in two or carry terminal escape sequences to
-whoever reads the log.
+neither is capped by anything else, so a request decided how many bytes its log line cost — up to
+`MaxHeaderBytes` (1MB by default) for the user agent, and as much again for the path.
 
-`logSafeValue` drops control characters and bounds the value at 256 characters, marking a truncated
-value with `…` so it is never mistaken for what the client actually sent. The bound counts characters
-rather than bytes, so multi-byte text is not cut mid-rune.
+`logSafeValue` bounds the value at 256 characters, marking a truncated value with `…` so it is never
+mistaken for what the client actually sent. The bound counts characters rather than bytes, so
+multi-byte text is not cut mid-rune.
+
+It also drops control characters, but as defence in depth rather than as the fix for a live hole.
+Measured against the real stack:
+
+- Control bytes in a *header* value never arrive: net/http answers **400** to a request carrying
+  `ESC`, `NUL` or `DEL` in a header, before any handler or log call runs. Only tab, and `\r\n `
+  continuation folded to a space, get through.
+- Control bytes in a *path* do arrive, because percent-encoding survives the request-line check and
+  `url.Parse` decodes it — `/x%00`, `/x%1b[31m` and `/x%0a` all reach the handler.
+- `slog`'s own text and JSON handlers then escape them: a newline is written `\n`, an escape byte
+  `\x1b` (text) or `\u001b` (JSON). Neither can break a record or reach a terminal raw.
+
+So scrubbing guards only the case of a handler that does not escape. It is kept because it is nearly
+free and govalin does not choose the handler it logs through, not because the standard ones leak.
 
 ### The logged call ID is not a finding
 
 The third alert flags the call ID on the same log call, because it originates in the inbound
 `X-Govalin-Id` header. That is the feature, not a leak: the header exists so a caller can propagate
 its own correlation ID, and appearing in every record for the request is the entire point of having
-one. Nothing sensitive is disclosed — the client reads back an identifier it chose itself. The ID is
-therefore logged as-is, and the alert is dismissed as a false positive rather than answered with
-code.
+one. Nothing sensitive is disclosed — the client reads back an identifier it chose itself.
+
+Nor is there a payload to smuggle through it. A header value carrying `ESC`, `NUL` or `DEL` is
+answered 400 by net/http before govalin sees it; what does get through (tab, folded continuation
+lines) is escaped by `slog`. The only thing an inbound ID can still do is be long, which is a
+log-volume question and not what the alert is about.
+
+The ID is therefore logged as sent, and the alert is dismissed as a false positive rather than
+answered with code.
 
 ## Considered options
 
@@ -70,9 +89,9 @@ code.
   Rejected; the alert is the thing that is wrong, not the behaviour.
 - **Dropping user agent and path from the access log** — removes the tainted values outright, and with
   them the reason anyone reads an access log. Rejected.
-- **Leaving sanitization to the log sink** — correct for a JSON handler, which escapes control
-  characters, but govalin does not choose its own sink: `slog.Default()` may be a text handler writing
-  to a terminal. Rejected as an assumption the framework cannot make.
+- **Leaving control characters to the log sink** — accepted, in effect: both standard `slog` handlers
+  escape them, so the scrub in `logSafeValue` is redundant with them and is kept only for a custom
+  handler that does not. It is the *length* bound that no sink provides.
 
 ## Consequences
 
