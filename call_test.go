@@ -3,6 +3,9 @@ package govalin_test
 import (
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/pkkummermo/govalin"
@@ -439,5 +442,201 @@ func TestRedirect(t *testing.T) {
 
 		assert.Equal(t, 200, response.StatusCode)
 		assert.Equal(t, "govalin2", body)
+	})
+}
+
+func TestFormParamRespectsMaxBodyReadSize(t *testing.T) {
+	app := newTestApp(func(config *govalin.Config) {
+		config.ServerMaxBodyReadSize(32)
+	})
+	app.Post("/form", func(call *govalin.Call) {
+		value, err := call.FormParam("name")
+
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.Text(value)
+		}
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.Do(urlEncodedRequest(t, "/form", url.Values{"name": {"govalin"}}))
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, "govalin", readBody(t, response), "a form within the limit should parse")
+
+		response = client.Do(urlEncodedRequest(t, "/form", url.Values{"name": {strings.Repeat("a", 64)}}))
+		assert.Equal(
+			t,
+			http.StatusRequestEntityTooLarge,
+			response.StatusCode,
+			"a form over the limit should be rejected rather than parsed against net/http's own default",
+		)
+		assert.Equal(t, bodyTooLargeResponse, readBody(t, response))
+	})
+}
+
+func TestMultipartFormIsNotBoundByMaxBodyReadSize(t *testing.T) {
+	app := newTestApp(func(config *govalin.Config) {
+		// Far smaller than the upload below.
+		config.ServerMaxBodyReadSize(4)
+	})
+	app.Post("/upload", func(call *govalin.Call) {
+		file, err := call.File("upload")
+
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.Text(file.Filename)
+		}
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.Do(multipartRequest(t, "/upload", "upload", strings.Repeat("a", 4096)))
+		assert.Equal(t, http.StatusOK, response.StatusCode, "uploads should be bounded by the multipart limit")
+		assert.Equal(t, "upload.txt", readBody(t, response))
+	})
+}
+
+func TestMultipartFormRespectsMaxMultipartSize(t *testing.T) {
+	app := newTestApp(func(config *govalin.Config) {
+		config.ServerMaxMultipartSize(256)
+	})
+	app.Post("/upload", func(call *govalin.Call) {
+		file, err := call.File("upload")
+
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.Text(file.Filename)
+		}
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.Do(multipartRequest(t, "/upload", "upload", strings.Repeat("a", 4096)))
+		assert.Equal(t, http.StatusRequestEntityTooLarge, response.StatusCode)
+		assert.Equal(t, bodyTooLargeResponse, readBody(t, response))
+	})
+}
+
+// TestMultipartFormMemoryBudget pins where an uploaded part is stored: the
+// handler reports "disk" when net/http spilled it to a temporary file.
+func TestMultipartFormMemoryBudget(t *testing.T) {
+	storageHandler := func(call *govalin.Call) {
+		file, err := call.File("upload")
+		if err != nil {
+			call.Error(err)
+			return
+		}
+
+		opened, err := file.Open()
+		if err != nil {
+			call.Error(err)
+			return
+		}
+		defer func() { _ = opened.Close() }()
+
+		if _, onDisk := opened.(*os.File); onDisk {
+			call.Text("disk")
+		} else {
+			call.Text("memory")
+		}
+	}
+
+	app := newTestApp()
+	app.Post("/upload", storageHandler)
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.Do(multipartRequest(t, "/upload", "upload", strings.Repeat("a", 4096)))
+		assert.Equal(
+			t,
+			"memory",
+			readBody(t, response),
+			"an upload within the default budget should be held in memory",
+		)
+	})
+
+	app = newTestApp(func(config *govalin.Config) {
+		config.ServerMaxMultipartMemory(0)
+	})
+	app.Post("/upload", storageHandler)
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.Do(multipartRequest(t, "/upload", "upload", strings.Repeat("a", 4096)))
+		assert.Equal(t, "disk", readBody(t, response), "a zero budget should spill the upload to disk")
+	})
+}
+
+func TestFormErrorIsReplayedAcrossAccessors(t *testing.T) {
+	app := newTestApp(func(config *govalin.Config) {
+		config.ServerMaxBodyReadSize(32)
+	})
+	app.Post("/form", func(call *govalin.Call) {
+		_, firstErr := call.FormParam("name")
+		assert.Error(t, firstErr, "first access should report the oversized form")
+
+		// The body is consumed, so later accessors must replay the failure.
+		_, err := call.FormParams()
+		if err != nil {
+			call.Error(err)
+			return
+		}
+
+		call.Text("parsed")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.Do(urlEncodedRequest(t, "/form", url.Values{"name": {strings.Repeat("a", 64)}}))
+		assert.Equal(t, http.StatusRequestEntityTooLarge, response.StatusCode)
+		assert.Equal(t, bodyTooLargeResponse, readBody(t, response))
+	})
+}
+
+func TestFileOnNonMultipartForm(t *testing.T) {
+	app := newTestApp()
+	app.Post("/f", func(call *govalin.Call) {
+		file, err := call.File("upload")
+
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.Text(file.Filename)
+		}
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.Do(urlEncodedRequest(t, "/f", url.Values{"name": {"govalin"}}))
+		assert.Equal(
+			t,
+			http.StatusBadRequest,
+			response.StatusCode,
+			"asking for a file on a url-encoded form should error rather than panic",
+		)
+	})
+}
+
+func TestFormAfterBodyReadIsRejected(t *testing.T) {
+	app := newTestApp()
+	app.Post("/f", func(call *govalin.Call) {
+		var body string
+		_ = call.BodyAs(&body)
+
+		// The body is drained, so the form would otherwise parse as empty.
+		value, err := call.FormParam("name")
+
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.Text("parsed " + value)
+		}
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.Do(urlEncodedRequest(t, "/f", url.Values{"name": {"govalin"}}))
+		assert.Equal(
+			t,
+			http.StatusInternalServerError,
+			response.StatusCode,
+			"a drained body should report an error rather than a silently empty form",
+		)
 	})
 }

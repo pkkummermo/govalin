@@ -11,14 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// bodyTooLargeResponse is the response govalin writes when a request body
-// exceeds the configured max body read size.
-const bodyTooLargeResponse = `{"title":"Payload too large","status":413,` +
-	`"type":"https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413",` +
-	`"details":[{"field":"body","reason":"Request body exceeds the maximum allowed size"}]}`
-
 func TestServerMaxBodyReadSizeConfig(t *testing.T) {
-	newApp := govalin.New(func(config *govalin.Config) {
+	newApp := newTestApp(func(config *govalin.Config) {
 		config.ServerMaxBodyReadSize(4)
 	})
 
@@ -46,7 +40,7 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 		)
 	})
 
-	newApp = govalin.New(func(config *govalin.Config) {
+	newApp = newTestApp(func(config *govalin.Config) {
 		config.ServerMaxBodyReadSize(4)
 	})
 
@@ -74,7 +68,7 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 		)
 	})
 
-	newApp = govalin.New(func(config *govalin.Config) {
+	newApp = newTestApp(func(config *govalin.Config) {
 		config.ServerMaxBodyReadSize(4)
 	})
 
@@ -103,7 +97,7 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 }
 
 func TestServerMaxBodyReadSizeErrorIsReplayedOnReread(t *testing.T) {
-	newApp := govalin.New(func(config *govalin.Config) {
+	newApp := newTestApp(func(config *govalin.Config) {
 		config.ServerMaxBodyReadSize(4)
 	})
 
@@ -133,11 +127,11 @@ func TestServerMaxBodyReadSizeErrorIsReplayedOnReread(t *testing.T) {
 func TestServerMaxBodyReadSizeWithoutContentLength(t *testing.T) {
 	var observedLength atomic.Int64
 
-	newApp := govalin.New(func(config *govalin.Config) {
+	newApp := newTestApp(func(config *govalin.Config) {
 		config.ServerMaxBodyReadSize(4)
-		// Aborting an oversized body makes net/http linger 500ms on the
-		// half-closed connection so the client reads the 413 instead of an RST,
-		// which outlasts the default 200ms shutdown timeout.
+		// Without a declared length there is nothing to pre-check, so the read
+		// trips MaxBytesReader and net/http lingers 500ms on the connection,
+		// outlasting the default 200ms shutdown timeout.
 		config.ServerShutdownTimeout(2000)
 	})
 
