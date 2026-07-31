@@ -474,16 +474,18 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 }
 
 func (server *App) logAccessLog(call *Call, durationInMS float64) {
+	// Path and user agent come straight off the wire; bound and scrub them so a
+	// request cannot forge log records or decide how large a log line is.
 	slog.Info(
 		"incoming request",
 		slog.String("id", call.ID()),
 		slog.String("method", call.Method()),
 		slog.Float64("duration_in_ms", durationInMS),
-		slog.String("path", call.URL().Path),
+		slog.String("path", logSafeValue(call.URL().Path)),
 		slog.Int("status", call.status),
 		slog.String(
 			"user_agent",
-			call.UserAgent(),
+			logSafeValue(call.UserAgent()),
 		),
 	)
 }

@@ -54,13 +54,13 @@ type Call struct {
 }
 
 func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config, pathParams map[string]string) Call {
-	govalinIDHeader := req.Header[http.CanonicalHeaderKey("x-govalin-id")]
-
-	var uniqueID string
-	if govalinIDHeader == nil {
+	// The correlation ID is attacker-controlled and ends up in every log record
+	// for the request, so an inbound one is adopted only when it looks like an
+	// ID. Anything else is replaced by a generated one rather than rejected, so
+	// a malformed header never fails an otherwise valid request.
+	uniqueID := req.Header.Get(headers.XGovalinID)
+	if !isValidCorrelationID(uniqueID) {
 		uniqueID = uuid.New().String()
-	} else {
-		uniqueID = govalinIDHeader[0]
 	}
 
 	call := Call{

@@ -73,6 +73,7 @@ const (
 	XForwardedFor                 = "X-Forwarded-For"
 	XForwardedProto               = "X-Forwarded-Proto"
 	XFrameOptions                 = "X-Frame-Options"
+	XGovalinID                    = "X-Govalin-Id"
 	XHttpMethodOverride           = "X-HTTP-Method-Override"
 	XPermittedCrossDomainPolicies = "X-Permitted-Cross-Domain-Policies"
 )

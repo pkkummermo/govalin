@@ -75,64 +75,41 @@ Are you sure it exists on the given path: '%s'`, indexPath))
 	http.ServeFile(*call.Raw.W, call.Raw.Req, filepath.Join(config.staticPath, "index.html"))
 }
 
-// resolveWithinStaticRoot resolves requestPath against the static root directory
-// and verifies the result is contained within that root. It returns the
-// absolute, cleaned path and true when the path is safe, or false when the path
-// escapes the root (a path-traversal attempt) or cannot be resolved.
-func resolveWithinStaticRoot(staticRoot string, requestPath string) (string, bool) {
-	absRoot, rootErr := filepath.Abs(staticRoot)
-	if rootErr != nil {
-		return "", false
-	}
-
-	absPath, pathErr := filepath.Abs(filepath.Join(absRoot, requestPath))
-	if pathErr != nil {
-		return "", false
-	}
-
-	// The resolved path is safe only when it is the root itself or lives
-	// underneath it. Comparing against absRoot+separator avoids treating a
-	// sibling directory with a shared prefix (e.g. "/srv/static-evil" for a
-	// "/srv/static" root) as contained.
-	if absPath != absRoot && !strings.HasPrefix(absPath, absRoot+string(filepath.Separator)) {
-		return "", false
-	}
-
-	return absPath, true
-}
-
 func (config *StaticConfig) handle(call *Call) {
 	isFS := config.fsContent != nil
-	isStatic := config.fsContent == nil
-
-	path := call.URL().Path
 
 	// remove host path
-	path = strings.TrimPrefix(path, config.hostPath)
+	path := strings.TrimPrefix(call.URL().Path, config.hostPath)
 
-	if isStatic {
-		// Resolve the requested path within the static directory and verify the
-		// result stays inside it. This rejects path-traversal attempts (e.g.
-		// "/../../etc/passwd") that would otherwise let an attacker stat (and
-		// probe the existence of) or serve files outside the static root.
-		safePath, withinRoot := resolveWithinStaticRoot(config.staticPath, path)
-		if !withinRoot {
-			call.Status(http.StatusNotFound)
-			call.Text("404 page not found")
+	hostedFileSystem := config.fsContent
+
+	if !isFS {
+		// Every read below the mount goes through the root, so a traversal
+		// segment or a symlink pointing outside the static directory is refused
+		// by the OS instead of by string comparison on a cleaned path.
+		root, rootErr := os.OpenRoot(config.staticPath)
+		if rootErr != nil {
+			slog.Error(fmt.Sprintf(`Failed to open the configured static file folder.
+Are you sure it exists and is readable on the given path: '%s'`, config.staticPath))
+			call.Status(http.StatusInternalServerError)
+			call.Text("500 internal server error")
+
 			return
 		}
+		defer func() { _ = root.Close() }()
 
-		path = safePath
+		hostedFileSystem = root.FS()
+	}
+
+	// An fs.FS addresses entries relative to its root, and names the root
+	// directory itself "." rather than the empty string.
+	name := strings.TrimPrefix(path, "/")
+	if name == "" {
+		name = "."
 	}
 
 	// check whether a file exists at the given path
-	var statErr error
-
-	if isFS {
-		_, statErr = fs.Stat(config.fsContent, strings.TrimPrefix(path, "/"))
-	} else {
-		_, statErr = os.Stat(path)
-	}
+	_, statErr := fs.Stat(hostedFileSystem, name)
 
 	var pathErr *fs.PathError
 
@@ -152,7 +129,13 @@ func (config *StaticConfig) handle(call *Call) {
 
 	switch {
 	case isNotFoundError:
+		// Answer directly instead of handing an unresolvable name to the file
+		// server. A name that escapes the root is not a missing file to it, so it
+		// would answer 500 and thereby confirm that something is there.
 		call.Status(http.StatusNotFound)
+		call.Text("404 page not found")
+
+		return
 	case statErr != nil:
 		// if we got an error (that wasn't that the file doesn't exist) stating the
 		// file, return a 500 internal server error and stop
@@ -164,13 +147,7 @@ func (config *StaticConfig) handle(call *Call) {
 	}
 
 	// otherwise, use http.FileServer to serve the file system
-	var hostedFileSystem http.FileSystem
-	if isFS {
-		hostedFileSystem = http.FS(config.fsContent)
-	} else {
-		hostedFileSystem = http.Dir(config.staticPath)
-	}
-
+	//
 	// http.FileServer takes over the raw writer and writes the response header
 	// itself. Bypass the lifecycle (same contract as HTTPServe) so the buffered
 	// status isn't flushed a second time, which would trigger a superfluous
@@ -178,7 +155,7 @@ func (config *StaticConfig) handle(call *Call) {
 	call.bypassLifecycle = true
 	http.StripPrefix(
 		config.hostPath,
-		http.FileServer(hostedFileSystem),
+		http.FileServer(http.FS(hostedFileSystem)),
 	).ServeHTTP(*call.Raw.W, call.Raw.Req)
 }
 
