@@ -474,8 +474,9 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 }
 
 func (server *App) logAccessLog(call *Call, durationInMS float64) {
-	// Path and user agent come straight off the wire; bound and scrub them so a
-	// request cannot forge log records or decide how large a log line is.
+	// Path and user agent come straight off the wire and are capped by nothing
+	// else, so bound them rather than let a request decide how large a log line
+	// is. The call ID is deliberately logged as sent — see ADR 0006.
 	slog.Info(
 		"incoming request",
 		slog.String("id", call.ID()),
