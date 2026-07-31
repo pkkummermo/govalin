@@ -13,6 +13,7 @@ var defaultErrorMessages = map[int]string{
 	404: "Not found",
 	405: "Method not allowed",
 	409: "Conflict",
+	413: "Payload too large",
 	500: "Server error",
 	501: "Not implemented",
 	502: "Bad gateway",

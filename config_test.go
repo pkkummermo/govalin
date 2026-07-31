@@ -1,12 +1,21 @@
 package govalin_test
 
 import (
+	"net/http"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/govalintest"
 	"github.com/stretchr/testify/assert"
 )
+
+// bodyTooLargeResponse is the response govalin writes when a request body
+// exceeds the configured max body read size.
+const bodyTooLargeResponse = `{"title":"Payload too large","status":413,` +
+	`"type":"https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413",` +
+	`"details":[{"field":"body","reason":"Request body exceeds the maximum allowed size"}]}`
 
 func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 	newApp := govalin.New(func(config *govalin.Config) {
@@ -28,9 +37,10 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 	govalintest.Test(t, newApp, func(client *govalintest.Client) {
 		response := client.PostResponse("/bodysize", `"aaa"`)
 		responseBody := readBody(t, response)
+		assert.Equal(t, http.StatusRequestEntityTooLarge, response.StatusCode)
 		assert.Equal(
 			t,
-			`{"title":"Server error","status":500,"type":"https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500"}`,
+			bodyTooLargeResponse,
 			responseBody,
 			"should trigger error upon max size",
 		)
@@ -55,9 +65,10 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 	govalintest.Test(t, newApp, func(client *govalintest.Client) {
 		response := client.PostResponse("/bodysize", `"aaaaaaaa"`)
 		responseBody := readBody(t, response)
+		assert.Equal(t, http.StatusRequestEntityTooLarge, response.StatusCode)
 		assert.Equal(
 			t,
-			`{"title":"Server error","status":500,"type":"https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500"}`,
+			bodyTooLargeResponse,
 			responseBody,
 			"should trigger error upon more than max size",
 		)
@@ -87,6 +98,86 @@ func TestServerMaxBodyReadSizeConfig(t *testing.T) {
 			`"aa"`,
 			responseBody,
 			"should not trigger error upon max size",
+		)
+	})
+}
+
+func TestServerMaxBodyReadSizeErrorIsReplayedOnReread(t *testing.T) {
+	newApp := govalin.New(func(config *govalin.Config) {
+		config.ServerMaxBodyReadSize(4)
+	})
+
+	newApp.Post("/bodysize", func(call *govalin.Call) {
+		var body string
+
+		assert.Error(t, call.BodyAs(&body), "first read should report the oversized body")
+
+		// The body is consumed, so a second read must replay the failure rather
+		// than hand back the empty cache as a success.
+		err := call.BodyAs(&body)
+
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.JSON(body)
+		}
+	})
+
+	govalintest.Test(t, newApp, func(client *govalintest.Client) {
+		response := client.PostResponse("/bodysize", `"aaaaaaaa"`)
+		assert.Equal(t, http.StatusRequestEntityTooLarge, response.StatusCode)
+		assert.Equal(t, bodyTooLargeResponse, readBody(t, response))
+	})
+}
+
+func TestServerMaxBodyReadSizeWithoutContentLength(t *testing.T) {
+	var observedLength atomic.Int64
+
+	newApp := govalin.New(func(config *govalin.Config) {
+		config.ServerMaxBodyReadSize(4)
+		// Aborting an oversized body makes net/http linger 500ms on the
+		// half-closed connection so the client reads the 413 instead of an RST,
+		// which outlasts the default 200ms shutdown timeout.
+		config.ServerShutdownTimeout(2000)
+	})
+
+	newApp.Post("/bodysize", func(call *govalin.Call) {
+		var body string
+
+		observedLength.Store(call.Raw.Req.ContentLength)
+
+		err := call.BodyAs(&body)
+
+		if err != nil {
+			call.Error(err)
+		} else {
+			call.JSON(body)
+		}
+	})
+
+	govalintest.Test(t, newApp, func(client *govalintest.Client) {
+		chunkedRequest := func(body string) *http.Request {
+			req, err := http.NewRequest(http.MethodPost, "/bodysize", strings.NewReader(body))
+			assert.NoError(t, err)
+			req.ContentLength = -1 // Force chunked encoding.
+			return req
+		}
+
+		response := client.Do(chunkedRequest(`"aa"`))
+		// Guards the premise: an unknown length is what routes readBody down its
+		// growing-buffer branch.
+		assert.Equal(t, int64(-1), observedLength.Load(), "server should see an unknown body length")
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, `"aa"`, readBody(t, response), "chunked body within the limit should be read")
+
+		response = client.Do(chunkedRequest(`"aaaaaaaa"`))
+		assert.Equal(t, int64(-1), observedLength.Load(), "server should see an unknown body length")
+		assert.Equal(t, http.StatusRequestEntityTooLarge, response.StatusCode)
+		assert.Equal(
+			t,
+			bodyTooLargeResponse,
+			readBody(t, response),
+			"chunked body over the limit should be rejected",
 		)
 	})
 }
