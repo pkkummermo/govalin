@@ -11,9 +11,6 @@ const (
 	// cannot decide how much a log line costs.
 	maxLoggedValueLength = 256
 
-	// maxCorrelationIDLength bounds an inbound X-Govalin-Id.
-	maxCorrelationIDLength = 128
-
 	// truncationMarker is appended to a value that was cut short, so a truncated
 	// value is never mistaken for the value the client actually sent.
 	truncationMarker = "…"
@@ -43,22 +40,4 @@ func logSafeValue(value string) string {
 	}
 
 	return builder.String()
-}
-
-// isValidCorrelationID reports whether a client-supplied X-Govalin-Id may be
-// adopted as the call ID. The ID is echoed into every log record for the
-// request, so only a bounded, printable, whitespace-free token is trusted;
-// anything else is discarded in favour of a generated one.
-func isValidCorrelationID(id string) bool {
-	if id == "" || len(id) > maxCorrelationIDLength {
-		return false
-	}
-
-	for _, char := range []byte(id) {
-		if char <= ' ' || char > '~' {
-			return false
-		}
-	}
-
-	return true
 }

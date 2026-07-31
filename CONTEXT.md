@@ -176,8 +176,8 @@ comparing cleaned path strings.
 _Avoid_: prefix-comparison containment, cleaned-path-as-proof, stat-then-open resolution
 
 **Request-controlled value**:
-A value the client alone decides — request path, `User-Agent`, inbound `X-Govalin-Id`. Unbounded in
-length and unconstrained in content until govalin bounds it.
+A value the client alone decides — request path, `User-Agent`. Unbounded in length and unconstrained
+in content until govalin bounds it.
 _Avoid_: "it's just a header", trusting net/http to have filtered it
 
 **Log-safe value**:
@@ -186,11 +186,11 @@ bounded, and truncation marked so a cut value is never read as what the client s
 govalin, never assumed of the sink, because `slog.Default()` may be a text handler on a terminal.
 _Avoid_: verbatim header logging, sink-dependent escaping, silent truncation
 
-**Trusted correlation ID**:
-An inbound `X-Govalin-Id` adopted as the call ID only when it is a bounded, printable, whitespace-free
-token; anything else is replaced by a generated UUID. It is an identity echoed into every record for
-the request, so it is held to a stricter rule than a **Log-safe value**.
-_Avoid_: client-chosen ID adopted as-is, rejecting the request over a malformed header
+**Correlation ID**:
+The call ID, taken verbatim from an inbound `X-Govalin-Id` when the caller sends one and generated
+otherwise. It is deliberately *not* a **Log-safe value**: a caller propagates its own ID so it can
+find the request in govalin's log, and appearing verbatim in every record is the point of having one.
+_Avoid_: sanitizing the ID for the log, framework-imposed ID formats that break propagation
 
 ## Relationships
 
@@ -227,7 +227,7 @@ _Avoid_: client-chosen ID adopted as-is, rejecting the request over a malformed 
 - **Declared-length rejection** is the first enforcement step for every limit, with the limiter as the fallback for bodies of unknown length
 - **Root-confined static access** replaces path-string containment: the static mount is a resource the OS confines, not a prefix the framework checks
 - A **Request-controlled value** reaching a log becomes a **Log-safe value** first; there is no path from a header to a log sink that skips it
-- A **Trusted correlation ID** is the one **Request-controlled value** govalin may adopt as an identity, and only after it passes the token rule
+- The **Correlation ID** is the deliberate exception: client-chosen and logged verbatim, because propagating it is the feature
 
 ## Example dialogue
 
