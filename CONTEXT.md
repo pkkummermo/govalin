@@ -169,6 +169,29 @@ _Avoid_: read-then-discard, limiter-only enforcement
 A non-fatal log emitted when an auxiliary runtime operation fails (e.g. mDNS registration/broadcast) must state what went wrong and what the user can do to fix it — not merely that an operation failed. Misconfiguration, by contrast, is caught early and is fatal.
 _Avoid_: "failed to start/configure" with no cause or remedy, silent runtime degradation
 
+**Root-confined static access**:
+Every file read below a static mount goes through an `os.Root` opened on the configured directory, so
+a name that leaves that directory — including through a symlink — is refused by the OS rather than by
+comparing cleaned path strings.
+_Avoid_: prefix-comparison containment, cleaned-path-as-proof, stat-then-open resolution
+
+**Request-controlled value**:
+A value the client alone decides — request path, `User-Agent`, inbound `X-Govalin-Id`. Unbounded in
+length and unconstrained in content until govalin bounds it.
+_Avoid_: "it's just a header", trusting net/http to have filtered it
+
+**Log-safe value**:
+A **Request-controlled value** made fit to write to a log sink: control characters dropped, length
+bounded, and truncation marked so a cut value is never read as what the client sent. Applied by
+govalin, never assumed of the sink, because `slog.Default()` may be a text handler on a terminal.
+_Avoid_: verbatim header logging, sink-dependent escaping, silent truncation
+
+**Trusted correlation ID**:
+An inbound `X-Govalin-Id` adopted as the call ID only when it is a bounded, printable, whitespace-free
+token; anything else is replaced by a generated UUID. It is an identity echoed into every record for
+the request, so it is held to a stricter rule than a **Log-safe value**.
+_Avoid_: client-chosen ID adopted as-is, rejecting the request over a malformed header
+
 ## Relationships
 
 - A **Race-clean build** is a required outcome of the **Stability gate**
@@ -202,6 +225,9 @@ _Avoid_: "failed to start/configure" with no cause or remedy, silent runtime deg
 - The **Plugin complexity boundary** does not exclude test tooling from the core module: a test package adds no dependency cost to consumers who never import it
 - The **Body size limit** and the **Multipart size limit** bound what the server accepts; the **Multipart memory budget** bounds only where an accepted upload is stored
 - **Declared-length rejection** is the first enforcement step for every limit, with the limiter as the fallback for bodies of unknown length
+- **Root-confined static access** replaces path-string containment: the static mount is a resource the OS confines, not a prefix the framework checks
+- A **Request-controlled value** reaching a log becomes a **Log-safe value** first; there is no path from a header to a log sink that skips it
+- A **Trusted correlation ID** is the one **Request-controlled value** govalin may adopt as an identity, and only after it passes the token rule
 
 ## Example dialogue
 

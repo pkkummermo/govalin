@@ -161,6 +161,50 @@ func TestAccessLogNotFoundIsLogged(t *testing.T) {
 	})
 }
 
+// TestAccessLogSanitizesRequestDerivedValues covers the access log recording
+// values a client controls: the client must not be able to break a record into
+// two, drive terminal escape sequences through whoever reads the log, or decide
+// how many bytes one request costs the log sink.
+func TestAccessLogSanitizesRequestDerivedValues(t *testing.T) {
+	var buf syncBuffer
+	app := newAccessLogApp(true, func(app *govalin.App) {
+		app.Get("/test", func(call *govalin.Call) { call.Text("govalin") })
+	})
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		defer captureAccessLog(&buf)()
+
+		req, err := http.NewRequest(http.MethodGet, "/test", nil)
+		assert.Nil(t, err)
+		// A tab is the only control character net/http will put on the wire, and
+		// it is enough to show control characters are dropped rather than logged.
+		req.Header.Set("User-Agent", "evil\tagent"+strings.Repeat("a", 1000))
+		response := client.Do(req)
+		_ = readBody(t, response)
+		time.Sleep(accessLogSettleTime)
+
+		log := buf.String()
+
+		assert.Contains(
+			t,
+			log,
+			"evilagent",
+			"Control characters should be dropped from the logged user agent",
+		)
+		assert.NotContains(
+			t,
+			log,
+			strings.Repeat("a", 1000),
+			"An oversized user agent should be truncated before it reaches the log",
+		)
+		assert.Contains(
+			t,
+			log,
+			"…",
+			"A truncated value should be marked as truncated",
+		)
+	})
+}
+
 // TestAccessLogDisabledLogsNothing ensures that when access logging is disabled
 // nothing is logged, including the short-circuit before-handler path that used
 // to log unconditionally regardless of the config flag.

@@ -3,6 +3,8 @@ package govalin_test
 import (
 	"embed"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/pkkummermo/govalin"
@@ -167,6 +169,79 @@ func TestStaticFolderPathTraversal(t *testing.T) {
 				attempt,
 			)
 		}
+	})
+}
+
+func TestStaticFolderSymlinkEscape(t *testing.T) {
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secret.txt")
+	assert.Nil(t, os.WriteFile(secret, []byte("Govalin secret"), 0o600))
+
+	staticRoot := t.TempDir()
+	assert.Nil(t, os.WriteFile(
+		filepath.Join(staticRoot, "index.html"),
+		[]byte("Hello world"),
+		0o600,
+	))
+
+	// A symlink is contained by the static root as a *path*, so path arithmetic
+	// alone accepts it; only resolving it against the root shows it leaves.
+	assert.Nil(t, os.Symlink(secret, filepath.Join(staticRoot, "escape.txt")))
+	assert.Nil(t, os.Symlink(outside, filepath.Join(staticRoot, "escape-dir")))
+
+	app := newTestApp()
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath(staticRoot)
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		escapes := []string{
+			"/static/escape.txt",
+			"/static/escape-dir/secret.txt",
+		}
+
+		for _, attempt := range escapes {
+			response := client.GetResponse(attempt)
+			body := readBody(t, response)
+
+			assert.Equal(
+				t,
+				404,
+				response.StatusCode,
+				"Symlink %q pointing outside the static root should not resolve",
+				attempt,
+			)
+			assert.NotContains(
+				t,
+				body,
+				"Govalin secret",
+				"Symlink %q must not leak contents of files outside the static root",
+				attempt,
+			)
+		}
+
+		assert.Contains(
+			t,
+			client.Get("/static/index.html"),
+			"Hello world",
+			"Files genuinely inside the static root should still be served",
+		)
+	})
+}
+
+func TestStaticFolderMissingRoot(t *testing.T) {
+	app := newTestApp()
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath(filepath.Join(t.TempDir(), "does-not-exist"))
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		assert.Equal(
+			t,
+			500,
+			client.GetStatus("/static/index.html"),
+			"A static mount whose folder is missing is a misconfiguration, not a 404",
+		)
 	})
 }
 
