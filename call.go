@@ -45,6 +45,7 @@ type Call struct {
 	req             *http.Request
 	pathParams      map[string]string
 	bodyBytes       []byte
+	bodyErr         error
 	charset         string
 	session         session.Session
 	Raw             raw // Raw contains the raw request and response
@@ -149,32 +150,66 @@ func addNewSessionToCall(call *Call) error {
 	return nil
 }
 
+// errBodyTooLarge is returned when a request body exceeds the configured max
+// body read size. Never mutated, so sharing it across requests is safe.
+var errBodyTooLarge = validation.NewError(validation.NewErrorResponse(
+	http.StatusRequestEntityTooLarge,
+	validation.NewParameterErrorDetail(
+		"body",
+		"Request body exceeds the maximum allowed size",
+	),
+))
+
+// failBody caches a body read failure. A body can only be read once, so a
+// repeated read replays the failure instead of reporting an empty body.
+func (call *Call) failBody(err error) ([]byte, error) {
+	call.bodyBytes = []byte{}
+	call.bodyErr = err
+
+	return call.bodyBytes, err
+}
+
 // readBody reads the body as bytes and caches the value on call.
+//
+// A declared Content-Length gives an exactly sized allocation; unknown lengths
+// (chunked) fall back to a growing buffer capped by http.MaxBytesReader.
 func (call *Call) readBody() ([]byte, error) {
-	if call.bodyBytes != nil {
-		return call.bodyBytes, nil
+	if call.bodyBytes != nil || call.bodyErr != nil {
+		return call.bodyBytes, call.bodyErr
 	}
 
-	limitedReader := io.LimitReader(call.req.Body, call.config.server.maxBodyReadSize)
+	maxSize := call.config.server.maxBodyReadSize
 
-	bytes, err := io.ReadAll(limitedReader)
+	// Reject a declared oversized body before reading a single byte. Leaving it
+	// unread is deliberate: net/http drains a small overage and keeps the
+	// connection alive, and abandons a large one. Tripping MaxBytesReader here
+	// instead would force a teardown even on a body that is barely over.
+	if call.req.ContentLength > maxSize {
+		return call.failBody(errBodyTooLarge)
+	}
+
+	limitedReader := http.MaxBytesReader(call.w, call.req.Body, maxSize)
+
+	var body []byte
+	var err error
+
+	if call.req.ContentLength >= 0 {
+		body = make([]byte, call.req.ContentLength)
+		_, err = io.ReadFull(limitedReader, body)
+	} else {
+		body, err = io.ReadAll(limitedReader)
+	}
+
 	if err != nil {
-		call.bodyBytes = []byte{}
-		return []byte{}, fmt.Errorf("failed to read request body. %w", err)
-	}
-
-	// If the size of bytes read and max body read size is the same, we could have a too big of a body.
-	// Try to read a single byte to see if the body still has any data
-	if len(bytes) == int(call.config.server.maxBodyReadSize) {
-		numBytes, readError := call.req.Body.Read(make([]byte, 1))
-
-		if (readError == nil || errors.Is(readError, io.EOF)) && numBytes == 1 {
-			call.bodyBytes = []byte{}
-			return []byte{}, fmt.Errorf("request body was too big, could not read full body")
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			return call.failBody(errBodyTooLarge)
 		}
+
+		return call.failBody(fmt.Errorf("failed to read request body. %w", err))
 	}
 
-	call.bodyBytes = bytes
+	call.bodyBytes = body
 
 	return call.bodyBytes, nil
 }
@@ -644,7 +679,9 @@ func (call *Call) Error(err error) {
 
 	var validationErr *validation.Error
 	if errors.As(err, &validationErr) {
-		call.Status(http.StatusBadRequest)
+		// Use the status the error carries so non-400 validation errors surface
+		// their real status.
+		call.Status(validationErr.Status())
 		call.JSON(validationErr.ErrorResponse)
 		return
 	}
