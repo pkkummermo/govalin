@@ -35,3 +35,71 @@ jobs:
 
       - name: Race test
         run: go test -race ./...
+
+  # Blocking performance gate. It asserts per-request allocation counts, which
+  # are identical on every run of a given build — unlike wall-clock time on a
+  # shared runner, which swings far enough to fail at random. Scoped to the
+  # baseline toolchain like the race gate, since escape analysis can shift the
+  # counts between Go releases.
+  perf-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+
+      - name: Allocation budget
+        env:
+          GOVALIN_PERF_GATE: "1"
+        run: go test -run TestAllocationBudget -v .
+
+  # Advisory only: timings from a shared runner are indicative, not a verdict,
+  # so this reports into the job summary and never fails the build.
+  perf-compare:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: Benchmark this branch
+        run: go test -run '^$' -bench . -skip LargeBody -benchmem -benchtime 200ms -count 6 . > "$RUNNER_TEMP/new.txt"
+
+      - name: Benchmark the merge base
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          git fetch --no-tags origin "$base" 2>/dev/null || true
+          git worktree add "$RUNNER_TEMP/base" "$base"
+          # The base runs its own benchmarks: a benchmark added or changed by
+          # this PR would not compile there, and copying it in would measure a
+          # file against a tree it was not written for.
+          (cd "$RUNNER_TEMP/base" && go test -run '^$' -bench . -skip LargeBody -benchmem -benchtime 200ms -count 6 .) > "$RUNNER_TEMP/old.txt"
+
+      - name: Compare
+        run: |
+          {
+            echo "## Benchmarks vs merge base"
+            echo
+            if grep -q '^Benchmark' "$RUNNER_TEMP/old.txt"; then
+              echo '```'
+              benchstat "$RUNNER_TEMP/old.txt" "$RUNNER_TEMP/new.txt"
+              echo '```'
+              echo
+              echo "_Shared-runner timings are noisy; treat sec/op as indicative and B/op and allocs/op as reliable. The blocking check is the allocation budget in \`perf-gate\`._"
+            else
+              echo "The merge base has no comparable benchmarks, so there is nothing to compare against."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
