@@ -29,8 +29,10 @@ func newResponseWriter(writer http.ResponseWriter) *responseWriter {
 // framework's own status flush is guarded by the committed flag instead.
 func (writer *responseWriter) WriteHeader(status int) {
 	// 1xx responses are informational: net/http may send several and the real
-	// status still follows, so they do not commit the response.
-	if status >= http.StatusOK && !writer.committed {
+	// status still follows, so they do not commit the response. 101 is the
+	// exception net/http itself makes — nothing follows a protocol switch, so it
+	// is a final status.
+	if !writer.committed && (status >= http.StatusOK || status == http.StatusSwitchingProtocols) {
 		writer.status = status
 		writer.committed = true
 	}
@@ -57,10 +59,16 @@ func (writer *responseWriter) ReadFrom(reader io.Reader) (int64, error) {
 	return io.Copy(writer.ResponseWriter, reader)
 }
 
+// Flush pushes buffered bytes to the client. net/http headers a response that
+// is flushed before anything was written, so a flush commits it.
 func (writer *responseWriter) Flush() {
-	if flusher, ok := writer.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
+	flusher, ok := writer.ResponseWriter.(http.Flusher)
+	if !ok {
+		return
 	}
+
+	writer.markCommitted()
+	flusher.Flush()
 }
 
 // Hijack hands over the connection — a websocket upgrade type-asserts on
