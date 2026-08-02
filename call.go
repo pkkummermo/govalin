@@ -39,9 +39,8 @@ type Call struct {
 	id              string
 	config          *Config
 	status          int
-	statusWritten   bool
 	bypassLifecycle bool
-	w               http.ResponseWriter
+	w               *responseWriter
 	req             *http.Request
 	pathParams      map[string]string
 	bodyBytes       []byte
@@ -63,17 +62,23 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 		uniqueID = govalinIDHeader[0]
 	}
 
+	// Everything writes through the recording writer, including handlers that
+	// take the raw writer, so govalin can tell whether the response has been
+	// committed no matter who committed it.
+	recordingWriter := newResponseWriter(w)
+	var rawWriter http.ResponseWriter = recordingWriter
+
 	call := Call{
 		id:              uniqueID,
 		config:          config,
-		w:               w,
+		w:               recordingWriter,
 		req:             req,
 		status:          0,
 		bypassLifecycle: false,
 		pathParams:      pathParams,
 		charset:         charsets.UTF8,
 		Raw: raw{
-			W:   &w,
+			W:   &rawWriter,
 			Req: req,
 		},
 	}
@@ -179,7 +184,10 @@ func (call *Call) limitBody(maxSize int64) error {
 		return errBodyTooLarge
 	}
 
-	call.req.Body = http.MaxBytesReader(call.w, call.req.Body, maxSize)
+	// The unwrapped writer: MaxBytesReader type-asserts it against an unexported
+	// net/http interface to close the connection on an over-long body, and an
+	// assertion does not see through the recording wrapper.
+	call.req.Body = http.MaxBytesReader(call.w.ResponseWriter, call.req.Body, maxSize)
 
 	return nil
 }
@@ -351,8 +359,11 @@ func (call *Call) multipartForm() (*multipart.Form, error) {
 	return call.req.MultipartForm, nil
 }
 
+// sendStatusOrDefault commits the buffered status, unless the response has
+// already been committed by someone else — a body sink, http.ServeContent, or a
+// handler writing to the raw writer.
 func (call *Call) sendStatusOrDefault() {
-	if call.statusWritten {
+	if call.committed() {
 		return
 	}
 
@@ -361,7 +372,24 @@ func (call *Call) sendStatusOrDefault() {
 	}
 
 	call.w.WriteHeader(call.status)
-	call.statusWritten = true
+}
+
+// committed reports whether the response header has reached the wire, whoever
+// put it there.
+func (call *Call) committed() bool {
+	return call.w.committed
+}
+
+// writtenStatus reports the status the client got: the one actually written
+// when the response has been committed, falling back to the buffered status for
+// a response that never reached the wire through govalin (a hijacked
+// connection writes its own handshake).
+func (call *Call) writtenStatus() int {
+	if call.w.status != 0 {
+		return call.w.status
+	}
+
+	return call.status
 }
 
 // ID gives an UUIDv4 string that's unique to the call.
@@ -587,10 +615,10 @@ func (call *Call) HeaderOrDefault(key string, def string) string {
 // Set HTTP status that will be used on the response
 //
 // The status is buffered on the call and committed to the response on the first
-// body write (JSON/Text/HTML/Redirect) or, if no body is written, once at the
-// end of the request lifecycle. Setting a status alone is therefore enough to
-// send it. Requests that take over the raw writer (HTTPServe) are never flushed
-// by the framework.
+// body write (JSON/Text/HTML/Redirect/Stream) or, if no body is written, once at
+// the end of the request lifecycle. Setting a status alone is therefore enough
+// to send it. A response already committed by someone else — ServeContent, which
+// picks its own status, or a handler writing to the raw writer — is left alone.
 func (call *Call) Status(statusCode ...int) int {
 	if len(statusCode) > 0 {
 		call.status = statusCode[0]

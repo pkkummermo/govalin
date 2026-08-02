@@ -133,6 +133,42 @@ func TestStaticFolder(t *testing.T) {
 	})
 }
 
+// TestStaticServesRanges covers static files going through Call rather than
+// past it: a large file can be resumed and seeked into, on both mount kinds.
+func TestStaticServesRanges(t *testing.T) {
+	staticRoot, _ := fs.Sub(staticTestFiles, "internal/testdata/static")
+
+	app := newTestApp()
+	app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(staticRoot)
+	})
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		for _, mount := range []string{"/fs", "/static"} {
+			full := readBody(t, client.GetResponse(mount+"/index.html"))
+
+			partial := client.GetRange(mount+"/index.html", 0, 4)
+			assert.Equal(
+				t,
+				206,
+				partial.StatusCode,
+				"A ranged request for a file on %s should be answered with a 206",
+				mount,
+			)
+			assert.Equal(
+				t,
+				full[:5],
+				readBody(t, partial),
+				"A 206 from %s should carry exactly the requested bytes",
+				mount,
+			)
+		}
+	})
+}
+
 func TestStaticFolderPathTraversal(t *testing.T) {
 	app := newTestApp()
 	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {

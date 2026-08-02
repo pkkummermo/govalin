@@ -134,6 +134,29 @@ func (client *Client) GetStatus(path string) int {
 	return client.statusCode(client.request(http.MethodGet, path, nil))
 }
 
+// GetRange performs a GET for a byte range and returns the full response, so a
+// test can assert on the 206, the Content-Range header and the bytes together.
+//
+// The range is inclusive at both ends, as HTTP counts it: from 0 to 1023 asks
+// for the first 1024 bytes. A negative to asks for an open-ended range — from
+// the given offset to the end of the content.
+func (client *Client) GetRange(path string, from int64, to int64) *http.Response {
+	client.t.Helper()
+
+	req, err := http.NewRequest(http.MethodGet, client.Host+path, nil)
+	if err != nil {
+		client.t.Fatalf("govalintest: failed to create ranged GET request for %s: %v", path, err)
+	}
+
+	if to < 0 {
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", from))
+	} else {
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", from, to))
+	}
+
+	return client.Do(req)
+}
+
 // Head performs a HEAD request and returns the response body.
 func (client *Client) Head(path string) string {
 	client.t.Helper()
