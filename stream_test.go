@@ -149,6 +149,66 @@ func TestStreamClientDisconnectIsNotAnError(t *testing.T) {
 	})
 }
 
+// TestStreamSniffsAnEmptyContentType covers the documented contract for an
+// empty content type. Committing the status first does not prevent sniffing:
+// net/http records the status on WriteHeader but writes (and sniffs) the header
+// when the first body bytes are flushed.
+func TestStreamSniffsAnEmptyContentType(t *testing.T) {
+	app := newTestApp()
+	app.Get("/sniff", func(call *govalin.Call) {
+		assert.Nil(t, call.Stream("", strings.NewReader("<!DOCTYPE html><html><body>hi</body></html>")))
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.GetResponse("/sniff")
+		_ = readBody(t, response)
+
+		assert.Equal(
+			t,
+			"text/html; charset=utf-8",
+			response.Header.Get("Content-Type"),
+			"An empty content type should be sniffed from the body by net/http",
+		)
+	})
+}
+
+// TestFlushedResponseIsNotWrittenTwice covers a handler that flushes without
+// writing a body: net/http headers the response with an implicit 200, so the
+// lifecycle must treat it as committed. Otherwise it flushes a second status —
+// the superfluous WriteHeader this change exists to prevent, caught for the
+// whole package by TestMain.
+func TestFlushedResponseIsNotWrittenTwice(t *testing.T) {
+	var buf syncBuffer
+
+	app := newAccessLogApp(true, func(app *govalin.App) {
+		app.Get("/flush", func(call *govalin.Call) {
+			call.Status(http.StatusAccepted)
+			assert.Nil(t, http.NewResponseController(*call.Raw.W).Flush())
+		})
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		defer captureAccessLog(&buf)()
+
+		response := client.GetResponse("/flush")
+		_ = readBody(t, response)
+		time.Sleep(accessLogSettleTime)
+
+		assert.Equal(
+			t,
+			http.StatusOK,
+			response.StatusCode,
+			"A flush commits the 200 net/http sends, whatever status was buffered",
+		)
+		assert.Contains(
+			t,
+			buf.String(),
+			"status=200",
+			"The access log should record the status the flush committed, not the buffered one",
+		)
+	})
+}
+
 // TestStreamReportsASourceFailure is the other half of the disconnect case: a
 // failure to read the content is the handler's to know about, and must not be
 // waved away as a client that hung up.
