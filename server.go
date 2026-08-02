@@ -466,9 +466,11 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// No status set, meaning no handlers have handled the request properly,
-	// ie 404 / not found
-	if call.Status() == 0 {
+	// No status set and nothing written, meaning no handlers have handled the
+	// request properly, ie 404 / not found. A handler that wrote the response
+	// itself without setting a status has handled it; appending a 404 body to
+	// what it sent would corrupt the response.
+	if call.Status() == 0 && !call.committed() {
 		server.notFoundHandler(&call)
 	}
 }
@@ -483,7 +485,7 @@ func (server *App) logAccessLog(call *Call, durationInMS float64) {
 		slog.String("method", call.Method()),
 		slog.Float64("duration_in_ms", durationInMS),
 		slog.String("path", logSafeValue(call.URL().Path)),
-		slog.Int("status", call.status),
+		slog.Int("status", call.writtenStatus()),
 		slog.String(
 			"user_agent",
 			logSafeValue(call.UserAgent()),

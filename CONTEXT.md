@@ -116,6 +116,29 @@ _Avoid_: implicit 200 on unflushed status, multiple status writes
 A request whose handler takes ownership of the raw writer (HTTPServe, or a websocket upgrade that hijacks the connection); govalin performs no status flush or response finalization for it.
 _Avoid_: framework-managed finalization on raw handlers, double-writing a bypassed response
 
+**Committed response**:
+A response whose header has reached the wire, whoever put it there — a `Call` body sink, an
+`http.ServeContent` call, a raw write, third-party middleware. Recorded by the writer itself rather
+than declared by the caller, so the framework never has to be told.
+_Avoid_: caller-declared "I wrote it" flags, per-call-site bypass as the way to avoid a double write
+
+**Written status**:
+The status of a **Committed response**, as recorded on the way out. This — not the **Buffered
+status** — is what the access log reports; the buffered value is the fallback for a response that
+never reached the wire through govalin.
+_Avoid_: logging the intended status, "the status is whatever `Status()` says"
+
+**Streamed body**:
+A response body copied straight from a reader onto the connection, never held in memory. Of unknown
+length and not seekable, so it is chunked and carries no ranges.
+_Avoid_: buffer-then-write for large bodies, "read it all first to know the length"
+
+**Ranged content**:
+A response body the client may ask for part of, byte range by byte range, because the content can be
+addressed at an offset — by seeking, or by reading at an offset with a known total size. What makes a
+large download resumable and a large file seekable.
+_Avoid_: whole-body-only downloads, buffering a remote object to make it seekable
+
 **Bound port**:
 The port the server is actually listening on, read from the live listener (`listener.Addr()`), as opposed to the configured port. When the configured port is `0` the OS assigns a free port, so only the bound port is authoritative. Exposed to plugins via `App.Port()`.
 _Avoid_: configured-port-as-truth, advertising a port the server is not listening on
@@ -221,6 +244,14 @@ _Avoid_: sanitizing the ID for the log, framework-imposed ID formats that break 
 - A **Buffered status** becomes visible to the client only after a **Status flush**
 - A **Status flush** happens at most once per request: on first body write, or otherwise at end of lifecycle
 - **Lifecycle bypass** suppresses **Status flush** — the handler owns response finalization
+- A **Status flush** never touches a **Committed response**; that, not **Lifecycle bypass**, is what
+  keeps the framework from writing a status twice
+- **Lifecycle bypass** is about ownership of the raw writer, not about avoiding a double write
+- The access log records the **Written status** of a **Committed response**, falling back to the
+  **Buffered status** only when nothing was committed through govalin
+- A **Committed response** counts as a handled request: the lifecycle appends no not-found body to it
+- A **Streamed body** and **Ranged content** are the two shapes of a body too large to buffer; the
+  content decides which one it can be
 - The **App-under-test** relies on **Startup-event readiness**, which reads the **Bound port** only after the startup event fires
 - **Test-scoped failure** and **Status-agnostic body access** define the public test client's failure semantics: transport errors fail the test, HTTP error statuses do not
 - The **Plugin complexity boundary** does not exclude test tooling from the core module: a test package adds no dependency cost to consumers who never import it

@@ -6,9 +6,10 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net/http"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -29,57 +30,66 @@ func newStaticConfig() *StaticConfig {
 	}
 }
 
-func (config *StaticConfig) serveIndexFS(call *Call) {
-	// file does not exist, serve index.html
-	file, openIndexErr := config.fsContent.Open("index.html")
-	if openIndexErr != nil {
-		slog.Error(`Failed to open index.html in bundled embedded files.
-This might be due to a misconfigured embedded bundle or simply 
-that the index.html files doesn't exist.`)
-		call.Error(openIndexErr)
-		return
-	}
+// indexFileName is the file served for the mount root and for the SPA fallback.
+const indexFileName = "index.html"
 
-	index, readIndexErr := io.ReadAll(file)
-	if readIndexErr != nil {
-		slog.Error(`Failed to read index.html in bundled embedded files.
-This might be due to a misconfigured embedded bundle or simply 
-that the index.html files doesn't exist.`)
-		call.Error(openIndexErr)
-		return
-	}
-
-	call.Status(http.StatusOK)
-	call.HTML(string(index))
+// serveIndex serves the mount's index.html, for the mount root and for the SPA
+// fallback. A mount without one is a misconfiguration, so it is reported as
+// such rather than as a missing file.
+func (config *StaticConfig) serveIndex(call *Call, hostedFileSystem fs.FS) {
+	failStatic(call, config.serveFile(call, hostedFileSystem, indexFileName), fmt.Sprintf(
+		`Failed to serve %s for the static mount on '%s'.
+This might be due to a misconfigured static path or embedded bundle, or simply
+that the %s file doesn't exist.`, indexFileName, config.hostPath, indexFileName))
 }
 
-func (config *StaticConfig) serveIndexStatic(call *Call) {
-	indexPath := filepath.Join(config.staticPath, "index.html")
-	if _, indexFileDoesNotExist := os.Stat(
-		indexPath,
-	); os.IsNotExist(indexFileDoesNotExist) {
-		slog.Error(fmt.Sprintf(`Failed to read the index.html file in the given static file folder. 
-Are you sure it exists on the given path: '%s'`, indexPath))
-		call.Error(indexFileDoesNotExist)
+// failStatic answers a static file that could not be served. A response already
+// on the wire cannot be turned into an error, so a failure part-way through a
+// body is only logged.
+func failStatic(call *Call, err error, message string) {
+	if err == nil {
 		return
 	}
 
-	// file does not exist, serve index.html
-	call.Status(http.StatusOK)
+	slog.Error(message, "err", err)
 
-	// http.ServeFile takes over the raw writer and writes the response header
-	// itself. Bypass the lifecycle (same contract as HTTPServe) so the buffered
-	// status isn't flushed a second time, which would trigger a superfluous
-	// response.WriteHeader warning.
-	call.bypassLifecycle = true
-	http.ServeFile(*call.Raw.W, call.Raw.Req, filepath.Join(config.staticPath, "index.html"))
+	if !call.committed() {
+		call.Error(err)
+	}
+}
+
+// serveFile sends a file from the mounted file system through Call, so the
+// response stays inside the govalin lifecycle and Range requests are answered.
+func (config *StaticConfig) serveFile(call *Call, hostedFileSystem fs.FS, name string) error {
+	file, openErr := hostedFileSystem.Open(name)
+	if openErr != nil {
+		return openErr
+	}
+	defer func() { _ = file.Close() }()
+
+	fileInfo, statErr := file.Stat()
+	if statErr != nil {
+		return statErr
+	}
+
+	// Range support needs to seek. Every file system govalin mounts (an os.Root
+	// and the embedded FS) gives seekable files; a custom one that does not still
+	// gets served, just without ranges.
+	seekableFile, isSeekable := file.(io.ReadSeeker)
+	if !isSeekable {
+		return call.Stream(mime.TypeByExtension(path.Ext(name)), file)
+	}
+
+	call.ServeContent(name, fileInfo.ModTime(), seekableFile)
+
+	return nil
 }
 
 func (config *StaticConfig) handle(call *Call) {
 	isFS := config.fsContent != nil
 
 	// remove host path
-	path := strings.TrimPrefix(call.URL().Path, config.hostPath)
+	mountPath := strings.TrimPrefix(call.URL().Path, config.hostPath)
 
 	hostedFileSystem := config.fsContent
 
@@ -103,13 +113,13 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 
 	// An fs.FS addresses entries relative to its root, and names the root
 	// directory itself "." rather than the empty string.
-	name := strings.TrimPrefix(path, "/")
+	name := strings.TrimPrefix(mountPath, "/")
 	if name == "" {
 		name = "."
 	}
 
 	// check whether a file exists at the given path
-	_, statErr := fs.Stat(hostedFileSystem, name)
+	fileInfo, statErr := fs.Stat(hostedFileSystem, name)
 
 	var pathErr *fs.PathError
 
@@ -118,12 +128,8 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 	// Serve index if:
 	// 1. If path is empty (slash root)
 	// 2. if SPA mode is enabled, and if the file doesn't exist
-	if path == "" || (config.spaMode && isNotFoundError) {
-		if isFS {
-			config.serveIndexFS(call)
-		} else {
-			config.serveIndexStatic(call)
-		}
+	if mountPath == "" || (config.spaMode && isNotFoundError) {
+		config.serveIndex(call, hostedFileSystem)
 		return
 	}
 
@@ -142,21 +148,22 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 		call.Status(http.StatusInternalServerError)
 		call.Error(statErr)
 		return
-	default:
-		call.Status(http.StatusOK)
+	case fileInfo.IsDir():
+		// A directory is the file server's job: it owns the trailing-slash
+		// canonicalization and the directory index.
+		http.StripPrefix(
+			config.hostPath,
+			http.FileServer(http.FS(hostedFileSystem)),
+		).ServeHTTP(*call.Raw.W, call.Raw.Req)
+
+		return
 	}
 
-	// otherwise, use http.FileServer to serve the file system
-	//
-	// http.FileServer takes over the raw writer and writes the response header
-	// itself. Bypass the lifecycle (same contract as HTTPServe) so the buffered
-	// status isn't flushed a second time, which would trigger a superfluous
-	// response.WriteHeader warning.
-	call.bypassLifecycle = true
-	http.StripPrefix(
-		config.hostPath,
-		http.FileServer(http.FS(hostedFileSystem)),
-	).ServeHTTP(*call.Raw.W, call.Raw.Req)
+	failStatic(
+		call,
+		config.serveFile(call, hostedFileSystem, name),
+		fmt.Sprintf("Failed to serve the static file '%s'", name),
+	)
 }
 
 // HostPath sets the host path for the static handler. This is trimmed from the
