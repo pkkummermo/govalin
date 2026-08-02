@@ -112,7 +112,27 @@ directory index; it no longer needs a bypass either.
   start doing so.
 - **Behaviour change**: static routes no longer bypass the lifecycle, so `After` handlers registered
   on a path that also serves static files now run for those requests.
+- **Behaviour change**: an explicit `index.html` request is served rather than redirected.
+  `http.FileServer` canonicalised `/mount/index.html` to `/mount/` with a 301, so a client paid a
+  second round trip for a file it had named exactly; serving through `Call` skips that.
 - A handler writing to `*call.Raw.W` without setting a status is now treated as having handled the
   request, instead of having a 404 body appended to its response.
 - `govalintest` gained `GetRange`, so a ranged response can be asserted on without hand-building a
   request.
+
+## Measured cost
+
+Benchmarks (`bench_test.go`, `bench_stream_test.go`) compared against the commit before this change,
+10 runs each through `benchstat`, on an M4:
+
+- Ordinary responses pay **one 16-byte allocation** for the recording writer and **+1% to +3%**
+  latency (7–20 ns on a ~700 ns request): `Text` +2.9%, `JSON` +1.7%, `StatusOnly` +1.1%,
+  `HTTPServe` +1.5%, before/after handlers +0.35%.
+- A large body over a real connection shows **no measurable change** (`HTTPServe` with an 8 MB body:
+  1.478 ms → 1.487 ms, p=0.24), because the wrapper forwards `ReadFrom` rather than downgrading the
+  copy.
+- Static files got **14% faster** with one allocation fewer, serving through `ServeContent` instead
+  of `http.FileServer`.
+- `ServeContent` moves 8 MB at 8.5 GB/s against 5.6 GB/s for a hand-rolled `io.Copy` to the raw
+  writer — **50% faster with a quarter of the allocations** — so the sink that replaces the
+  workaround is also the faster one.

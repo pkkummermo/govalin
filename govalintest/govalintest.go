@@ -76,6 +76,8 @@ func TestWithOptions(t *testing.T, app *govalin.App, opts Options, fn func(clien
 		startupTimeout = defaultStartupTimeout
 	}
 
+	httpClient := &http.Client{}
+
 	ready := make(chan struct{})
 	startErr := make(chan error, 1)
 
@@ -92,6 +94,12 @@ func TestWithOptions(t *testing.T, app *govalin.App, opts Options, fn func(clien
 	}()
 
 	t.Cleanup(func() {
+		// Hand the connections back before shutting down. A keep-alive connection
+		// the server has accepted but not yet read a request from does not count as
+		// idle, so Shutdown would wait for it until the read header timeout and
+		// then fail on its own deadline.
+		httpClient.CloseIdleConnections()
+
 		if err := app.Shutdown(); err != nil {
 			t.Errorf("govalintest: failed to shut down app: %v", err)
 		}
@@ -111,7 +119,7 @@ func TestWithOptions(t *testing.T, app *govalin.App, opts Options, fn func(clien
 	fn(&Client{
 		Host: fmt.Sprintf("http://localhost:%d", app.Port()),
 		t:    t,
-		http: &http.Client{},
+		http: httpClient,
 	})
 }
 

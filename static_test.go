@@ -3,6 +3,7 @@ package govalin_test
 import (
 	"embed"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -166,6 +167,32 @@ func TestStaticServesRanges(t *testing.T) {
 				mount,
 			)
 		}
+	})
+}
+
+// TestStaticServesIndexFileDirectly pins a behaviour change: http.FileServer
+// used to answer an explicit index.html request with a 301 to the directory,
+// costing a second round trip. Serving through Call, the file is simply served.
+func TestStaticServesIndexFileDirectly(t *testing.T) {
+	app := newTestApp()
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		client.HTTP().CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+
+		response := client.GetResponse("/static/index.html")
+
+		assert.Equal(
+			t,
+			200,
+			response.StatusCode,
+			"An explicit index.html request should be served, not redirected",
+		)
+		assert.Contains(t, readBody(t, response), "Hello world", "The index file should be the body")
 	})
 }
 
