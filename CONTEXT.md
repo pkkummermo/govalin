@@ -116,6 +116,13 @@ _Avoid_: implicit 200 on unflushed status, multiple status writes
 A request whose handler takes ownership of the raw writer (HTTPServe, or a websocket upgrade that hijacks the connection); govalin performs no status flush or response finalization for it.
 _Avoid_: framework-managed finalization on raw handlers, double-writing a bypassed response
 
+**Allocation budget**:
+The number of allocations a request shape is allowed to cost, asserted in CI. Measured from what the
+code does today, not aimed at; exact rather than statistical, because an allocation count is the same
+on every run of a build while wall-clock time on a shared runner is not. Raising one is a decision
+taken in the diff that needs it, with the reason in the commit.
+_Avoid_: timing thresholds as a blocking gate, nudging the number until the gate passes
+
 **Committed response**:
 A response whose header has reached the wire, whoever put it there — a `Call` body sink, an
 `http.ServeContent` call, a raw write, third-party middleware. Recorded by the writer itself rather
@@ -225,6 +232,9 @@ _Avoid_: sanitizing the ID for the log, framework-imposed ID formats that break 
 - **Scope-frozen phase one** limits changes to race elimination only
 - **Phase-one done criteria** require both race and default test passes with unchanged helper signatures
 - A **Policy-enforced gate** ensures race-cleanliness is continuously verified pre-merge
+- An **Allocation budget** is a **Stability gate** for cost, enforced in its own job on the baseline
+  toolchain for the same reason race detection is: an isolated, trustworthy signal
+- Benchmark timings are advisory context for an **Allocation budget**, never the gate themselves
 - **Gate-first execution order** resolves blocking quality gates before static-route redesign
 - **Canonical static mount URL** is the trailing-slash path, with redirect from non-slash form
 - **Permanent canonical redirect** applies to static mount root normalization
