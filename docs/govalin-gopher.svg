@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="520" viewBox="0 0 400 520" role="img" aria-label="Go gopher hugging the Javalin mark">
+  <defs>
+    <linearGradient id="fur" x1="0" y1="40" x2="0" y2="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ADE9F5"/>
+      <stop offset=".45" stop-color="#7BD5E8"/>
+      <stop offset="1" stop-color="#68CBE0"/>
+    </linearGradient>
+    <linearGradient id="furLimb" x1="0" y1="290" x2="0" y2="450" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#95DFEF"/>
+      <stop offset="1" stop-color="#63C8DD"/>
+    </linearGradient>
+    <linearGradient id="eyeW" x1="0" y1="79" x2="0" y2="209" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D4E7ED"/>
+    </linearGradient>
+    <linearGradient id="toothG" x1="0" y1="238" x2="0" y2="268" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DBE7EB"/>
+    </linearGradient>
+    <linearGradient id="noseG" x1="0" y1="206" x2="0" y2="242" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5A534D"/>
+      <stop offset="1" stop-color="#332E2B"/>
+    </linearGradient>
+    <radialGradient id="discSheen" cx=".34" cy=".24" r=".82">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".2"/>
+      <stop offset=".58" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="1" stop-color="#00394D" stop-opacity=".09"/>
+    </radialGradient>
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="14"/></filter>
+    <filter id="soft8" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="8"/></filter>
+    <filter id="soft4" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4"/></filter>
+
+    <path id="silhouette" d="M200 40
+      C288 40 352 104 352 182 C352 240 322 268 306 300
+      C296 322 322 356 322 402 C322 450 276 480 200 480
+      C124 480 78 450 78 402 C78 356 104 322 94 300
+      C78 268 48 240 48 182 C48 104 112 40 200 40 Z"/>
+    <clipPath id="bodyClip"><use href="#silhouette"/></clipPath>
+    <clipPath id="discClip"><circle cx="200" cy="348" r="82"/></clipPath>
+
+    <path id="armL" d="M88 292 C62 344 74 390 158 406"/>
+    <path id="armR" d="M312 292 C338 344 326 390 242 406"/>
+
+    <!-- Javalin mark, traced from javalin.io/img/logo.svg -->
+    <g id="javalin">
+      <circle cx="91" cy="91" r="91" fill="#008CBB"/>
+      <path transform="translate(57.891113 23.759338)" fill="#006889" fill-rule="evenodd" d="M91.0209 9.32864C78.5827 -3.10955 58.4164 -3.10955 45.9782 9.32865C33.54 21.7669 33.54 41.9332 45.9782 54.3713C58.4164 66.8095 78.5827 66.8095 91.0209 54.3713C103.459 41.9331 103.459 21.7668 91.0209 9.32864ZM106.897 46.1103C107.088 45.5941 107.354 44.7822 107.552 44.1628C107.705 43.6844 108.225 43.2177 108.718 43.1219L110.349 42.8049C110.842 42.7091 111.36 43.0209 111.505 43.5021C111.677 44.0758 111.893 44.8066 112.026 45.2838C119.654 72.7997 112.652 103.521 91.0209 125.153C67.1479 149.026 32.2036 155.08 2.71541 143.315C2.13003 143.081 1.21169 142.691 0.543846 142.405C0.0821674 142.207 -0.125768 141.673 0.0785503 141.214L0.734106 139.741C0.938431 139.283 1.5051 138.981 2.0004 139.065C2.64946 139.175 3.50635 139.315 4.05832 139.387C18.9456 141.335 34.5409 136.59 45.9781 125.153C59.1403 111.991 63.439 93.3215 58.8743 76.5622C58.774 76.1938 58.6117 75.648 58.4721 75.1868C58.3266 74.706 58.4938 74.0291 58.849 73.6739L59.8631 72.6598C60.2183 72.3046 60.9069 72.0895 61.4019 72.1751C61.9279 72.2661 62.5713 72.3734 62.9984 72.431C75.2268 74.0794 88.0571 70.2044 97.4556 60.806C101.763 56.4988 104.91 51.4708 106.897 46.1103Z"/>
+    </g>
+  </defs>
+
+  <ellipse cx="200" cy="510" rx="104" ry="11" fill="#0B2E3B" opacity=".15" filter="url(#soft8)"/>
+
+  <!-- ears -->
+  <circle cx="72" cy="74" r="35" fill="url(#fur)"/>
+  <circle cx="328" cy="74" r="35" fill="url(#fur)"/>
+  <ellipse cx="76" cy="78" rx="19" ry="18" fill="#3FA9C2"/>
+  <ellipse cx="324" cy="78" rx="19" ry="18" fill="#3FA9C2"/>
+  <ellipse cx="74" cy="74" rx="13" ry="12" fill="#5CC1D7"/>
+  <ellipse cx="326" cy="74" rx="13" ry="12" fill="#5CC1D7"/>
+
+  <!-- feet -->
+  <ellipse cx="138" cy="486" rx="46" ry="24" fill="url(#furLimb)"/>
+  <ellipse cx="262" cy="486" rx="46" ry="24" fill="url(#furLimb)"/>
+  <g stroke="#3FA9C2" stroke-width="3.5" stroke-linecap="round" fill="none" opacity=".7">
+    <path d="M126 497 v-13"/><path d="M142 500 v-14"/><path d="M158 497 v-13"/>
+    <path d="M242 497 v-13"/><path d="M258 500 v-14"/><path d="M274 497 v-13"/>
+  </g>
+
+  <!-- body -->
+  <use href="#silhouette" fill="url(#fur)"/>
+  <g clip-path="url(#bodyClip)">
+    <ellipse cx="136" cy="104" rx="88" ry="62" fill="#FFFFFF" opacity=".3" filter="url(#soft)"/>
+    <ellipse cx="200" cy="268" rx="104" ry="20" fill="#2C8CA6" opacity=".22" filter="url(#soft)"/>
+    <ellipse cx="200" cy="490" rx="118" ry="22" fill="#2C8CA6" opacity=".14" filter="url(#soft)"/>
+  </g>
+
+  <!-- eyes -->
+  <circle cx="142" cy="142" r="63" fill="url(#eyeW)"/>
+  <circle cx="258" cy="142" r="63" fill="url(#eyeW)"/>
+  <circle cx="162" cy="148" r="28" fill="#16232B"/>
+  <circle cx="238" cy="148" r="28" fill="#16232B"/>
+  <circle cx="153" cy="138" r="10.5" fill="#fff"/>
+  <circle cx="229" cy="138" r="10.5" fill="#fff"/>
+  <circle cx="171" cy="161" r="3.5" fill="#fff" opacity=".45"/>
+  <circle cx="247" cy="161" r="3.5" fill="#fff" opacity=".45"/>
+
+  <!-- muzzle, nose, teeth -->
+  <ellipse cx="200" cy="236" rx="58" ry="34" fill="#B4EBF5" opacity=".5" filter="url(#soft8)"/>
+  <ellipse cx="200" cy="224" rx="24" ry="18" fill="url(#noseG)"/>
+  <ellipse cx="193" cy="218" rx="8" ry="5" fill="#fff" opacity=".32"/>
+  <ellipse cx="200" cy="244" rx="21" ry="9" fill="#2C8CA6" opacity=".3" filter="url(#soft4)"/>
+  <path d="M182 239 h17 v19 a8.5 8.5 0 0 1 -17 0 z" fill="url(#toothG)"/>
+  <path d="M201 239 h17 v19 a8.5 8.5 0 0 1 -17 0 z" fill="url(#toothG)"/>
+
+  <!-- whiskers -->
+  <g stroke="#3FA9C2" stroke-width="3.5" stroke-linecap="round" fill="none" opacity=".85">
+    <path d="M172 220 C148 212 128 208 110 210"/>
+    <path d="M173 232 C150 232 130 236 114 242"/>
+    <path d="M228 220 C252 212 272 208 290 210"/>
+    <path d="M227 232 C250 232 270 236 286 242"/>
+  </g>
+
+  <!-- javalin mark, held against the chest -->
+  <circle cx="200" cy="352" r="84" fill="#15596E" opacity=".34" filter="url(#soft4)"/>
+  <use href="#javalin" transform="translate(118 266) scale(0.901)"/>
+  <circle cx="200" cy="348" r="82" fill="url(#discSheen)"/>
+  <path d="M132 302 A82 82 0 0 1 232 269" fill="none" stroke="#8FE0F2" stroke-width="3" stroke-linecap="round" opacity=".3"/>
+
+  <!-- arms; the shadows fall on the body and on the mark separately -->
+  <g clip-path="url(#bodyClip)" opacity=".3" filter="url(#soft8)">
+    <use href="#armL" fill="none" stroke="#22809B" stroke-width="52" stroke-linecap="round" transform="translate(6 8)"/>
+    <use href="#armR" fill="none" stroke="#22809B" stroke-width="52" stroke-linecap="round" transform="translate(-6 8)"/>
+  </g>
+  <g clip-path="url(#discClip)" opacity=".22" filter="url(#soft8)">
+    <use href="#armL" fill="none" stroke="#0B4B60" stroke-width="48" stroke-linecap="round" transform="translate(5 8)"/>
+    <use href="#armR" fill="none" stroke="#0B4B60" stroke-width="48" stroke-linecap="round" transform="translate(-5 8)"/>
+  </g>
+  <use href="#armL" fill="none" stroke="url(#furLimb)" stroke-width="44" stroke-linecap="round"/>
+  <use href="#armR" fill="none" stroke="url(#furLimb)" stroke-width="44" stroke-linecap="round"/>
+  <g opacity=".28">
+    <use href="#armL" fill="none" stroke="#CBF1F9" stroke-width="9" stroke-linecap="round" transform="translate(-4 -12)"/>
+    <use href="#armR" fill="none" stroke="#CBF1F9" stroke-width="9" stroke-linecap="round" transform="translate(4 -12)"/>
+  </g>
+  <ellipse cx="170" cy="408" rx="30" ry="26" transform="rotate(-12 170 408)" fill="url(#furLimb)"/>
+  <ellipse cx="230" cy="408" rx="30" ry="26" transform="rotate(12 230 408)" fill="url(#furLimb)"/>
+  <g stroke="#3FA9C2" stroke-width="3.5" stroke-linecap="round" fill="none" opacity=".75">
+    <path d="M158 394 l-3 14"/><path d="M171 391 l0 14"/><path d="M184 394 l3 14"/>
+    <path d="M242 394 l3 14"/><path d="M229 391 l0 14"/><path d="M216 394 l-3 14"/>
+  </g>
+</svg>
