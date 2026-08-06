@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/govalin-gopher.svg" alt="A Go gopher hugging the Javalin mark" width="180">
+</p>
+
 # govalin
 
 [![Unit tests](https://github.com/pkkummermo/govalin/actions/workflows/main.yml/badge.svg)](https://github.com/pkkummermo/govalin/actions/workflows/main.yml)
@@ -98,3 +102,10 @@ A few things to know:
 I love how fast and efficient go is. What I don't like, is how it doesn't create an easy way of creating HTTP APIs. Govalin focuses on pleasing those who want to create APIs without too much hassle, with a lean simple API.
 
 Inspired by simple libraries and frameworks such as [Javalin](https://javalin.io), I wanted to see if we could port the simplicity to golang.
+
+## Mascot
+
+The govalin gopher is a modified version of the Go gopher, which was designed by
+[Renée French](https://reneefrench.blogspot.com/) and is licensed under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). The mark it is hugging is the
+[Javalin](https://javalin.io) logo, used with Javalin's permission.
