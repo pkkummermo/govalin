@@ -315,6 +315,120 @@ func TestStaticLeavesTheFileServerItsWork(t *testing.T) {
 	})
 }
 
+// TestStaticResolvesADirectoryBelowTheMount covers the round trip a directory is
+// reached by: the file server redirects '/sub' to '/sub/', and that destination
+// has to resolve. The name handed to the file system is derived from the URL,
+// and io/fs refuses one with a trailing slash, so the redirect used to point at
+// a 404 and every directory below a mount was unreachable.
+func TestStaticResolvesADirectoryBelowTheMount(t *testing.T) {
+	bundle := fstest.MapFS{
+		"sub/index.html":   &fstest.MapFile{Data: []byte("Sub hello world")},
+		"notes/readme.txt": &fstest.MapFile{Data: []byte("notes")},
+	}
+
+	app := newTestApp()
+	app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(bundle)
+	})
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		indexed := client.GetResponse("/fs/sub/")
+		assert.Equal(t, 200, indexed.StatusCode, "A directory holding an index.html should serve it")
+		assert.Contains(t, readBody(t, indexed), "Sub hello world", "The directory's own index should be the body")
+		assert.NotEmpty(
+			t,
+			indexed.Header.Get("ETag"),
+			"A directory index goes through Call, so it carries a validator like any other file",
+		)
+
+		listed := client.GetResponse("/fs/notes/")
+		assert.Equal(t, 200, listed.StatusCode, "A directory without an index.html should be listed")
+		assert.Contains(t, readBody(t, listed), "readme.txt", "The listing should name the directory's entries")
+
+		// The redirect the file server answers '/sub' with, followed by the client.
+		followed := client.GetResponse("/static/sub")
+		assert.Equal(
+			t,
+			200,
+			followed.StatusCode,
+			"The redirect from a directory reached without its trailing slash has to land somewhere",
+		)
+		assert.Contains(t, readBody(t, followed), "test.html", "It lands on the listing of the directory it named")
+	})
+}
+
+// TestStaticRedirectsAFileAskedForAsADirectory pins the other half of what a
+// trailing slash means. It names a directory, so a name that turns out to hold a
+// file is answered with the redirect to its canonical URL rather than served at
+// both spellings.
+func TestStaticRedirectsAFileAskedForAsADirectory(t *testing.T) {
+	app := newTestApp()
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		client.HTTP().CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+
+		response := client.GetResponse("/static/sub/test.html/?page=2")
+		assert.Equal(
+			t,
+			http.StatusMovedPermanently,
+			response.StatusCode,
+			"A file asked for as a directory should be redirected, not served at a second URL",
+		)
+
+		location, locationErr := response.Location()
+		assert.Nil(t, locationErr, "The redirect should carry a location")
+		assert.Equal(t, "/static/sub/test.html", location.Path, "It should point at the file's canonical URL")
+		assert.Equal(t, "page=2", location.RawQuery, "A framework redirect keeps the query it was asked with")
+	})
+}
+
+// TestStaticSPAModeResolvesDirectories covers where the unreachable directory
+// was worst: SPA mode answered the shell with a 200, so a URL that named a real
+// directory failed to resolve without anything saying so. What a SPA mount must
+// not start doing, now that directories resolve, is enumerate its own bundle.
+func TestStaticSPAModeResolvesDirectories(t *testing.T) {
+	bundle := fstest.MapFS{
+		"index.html":       &fstest.MapFile{Data: []byte("shell")},
+		"docs/index.html":  &fstest.MapFile{Data: []byte("docs index")},
+		"assets/app.js":    &fstest.MapFile{Data: []byte("bundled")},
+		"assets/vendor.js": &fstest.MapFile{Data: []byte("vendored")},
+	}
+
+	app := newTestApp()
+	app.Static("/spa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.
+			WithFS(bundle).
+			EnableSPAMode(true)
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		assert.Contains(
+			t,
+			client.Get("/spa/docs/"),
+			"docs index",
+			"A directory that exists should resolve, not fall through to the SPA shell",
+		)
+		assert.Contains(
+			t,
+			client.Get("/spa/no/such/path"),
+			"shell",
+			"A name that resolves to nothing should still get the SPA shell",
+		)
+
+		listing := client.Get("/spa/assets/")
+		assert.Contains(t, listing, "shell", "A directory a SPA mount cannot serve should get the shell")
+		assert.NotContains(t, listing, "vendor.js", "A SPA mount should not enumerate its own bundle")
+	})
+}
+
 // TestStaticValidatorFollowsContentWithoutAClock is the reason an embedded file
 // is hashed rather than measured. Two builds of a bundle can differ in content
 // at identical size — a version bump of the same length — and with no
