@@ -199,10 +199,9 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 	// escaping symlink must not answer differently from a name that isn't there.
 	isNotFoundError := errors.Is(statErr, fs.ErrNotExist) || errors.As(statErr, &pathErr)
 
-	// Serve index if:
-	// 1. If path is empty (slash root)
-	// 2. if SPA mode is enabled, and if the file doesn't exist
-	if mountPath == "" || (config.spaMode && isNotFoundError) {
+	// A name that resolves to nothing is a client-side route on a SPA mount, so
+	// the shell answers it.
+	if config.spaMode && isNotFoundError {
 		config.serveIndex(call, hostedFileSystem)
 		return
 	}
