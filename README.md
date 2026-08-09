@@ -28,6 +28,9 @@ func main() {
 }
 ```
 
+A route registered with `Get` also answers `HEAD`, as HTTP defines it: the handler runs and its body
+is dropped. Register `Head` explicitly on a route that can answer without producing one, and it wins.
+
 ## Serving files and large bodies
 
 `Text`, `HTML` and `JSON` are for bodies that fit in memory. For anything bigger, `Call` streams:

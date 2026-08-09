@@ -3,6 +3,7 @@ package govalin_test
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"testing"
 	"time"
@@ -159,6 +160,84 @@ func TestHead(t *testing.T) {
 			response.Header.Get("govalin-header"),
 			"Should create head endpoint",
 		)
+	})
+}
+
+// TestHeadIsServedByTheGetHandler covers HEAD as GET without a body (RFC 9110
+// §9.3.2): a route registered with Get answers it with the headers it would have
+// sent, and net/http drops the body the handler wrote.
+func TestHeadIsServedByTheGetHandler(t *testing.T) {
+	app := newTestApp()
+	app.Get("/resource", func(call *govalin.Call) {
+		call.Header("govalin-header", "govalin")
+		call.Text("the representation")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.HeadResponse("/resource")
+
+		assert.Equal(t, http.StatusOK, response.StatusCode, "Should serve HEAD from the GET handler")
+		assert.Equal(t, "govalin", response.Header.Get("govalin-header"), "Should send the GET handler's headers")
+		assert.Equal(
+			t,
+			int64(len("the representation")),
+			response.ContentLength,
+			"Should describe the body a GET would have sent",
+		)
+		assert.Empty(t, readBody(t, response), "Should send no body")
+	})
+}
+
+// TestHeadHandlerWinsOverGet covers the fallback being only a fallback: a route
+// that answers HEAD itself keeps doing so.
+func TestHeadHandlerWinsOverGet(t *testing.T) {
+	app := newTestApp()
+	app.Get("/resource", func(call *govalin.Call) {
+		call.Header("served-by", "get")
+	})
+	app.Head("/resource", func(call *govalin.Call) {
+		call.Header("served-by", "head")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.HeadResponse("/resource")
+		defer func() { _ = response.Body.Close() }()
+
+		assert.Equal(t, "head", response.Header.Get("served-by"), "Should prefer the HEAD handler")
+	})
+}
+
+// TestHeadHandlerWinsOverAnEarlierGet covers the fallback not shadowing an
+// explicit HEAD registered elsewhere. Routes are matched in registration order,
+// so a wildcard GET — a static mount is one — would otherwise claim a HEAD the
+// route behind it answers itself.
+func TestHeadHandlerWinsOverAnEarlierGet(t *testing.T) {
+	app := newTestApp()
+	app.Get("/resource/*", func(call *govalin.Call) {
+		call.Header("served-by", "get")
+	})
+	app.Head("/resource/cheap", func(call *govalin.Call) {
+		call.Header("served-by", "head")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.HeadResponse("/resource/cheap")
+		defer func() { _ = response.Body.Close() }()
+
+		assert.Equal(t, "head", response.Header.Get("served-by"), "Should prefer the HEAD handler wherever it is registered")
+	})
+}
+
+// TestHeadWithoutAGetIsNotFound covers the fallback not inventing a route: a
+// path with no GET handler answers a HEAD the same way it answers a GET.
+func TestHeadWithoutAGetIsNotFound(t *testing.T) {
+	app := newTestApp()
+	app.Post("/resource", func(call *govalin.Call) {
+		call.Text("posted")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		assert.Equal(t, http.StatusNotFound, client.HeadStatus("/resource"), "Should not answer a HEAD it has no GET for")
 	})
 }
 

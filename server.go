@@ -180,7 +180,8 @@ func (server *App) After(path string, afterFunc AfterFunc) {
 // Add a GET handler
 //
 // Add a GET handler based on where you are in a hierarchy composed from
-// other method handlers or route handlers.
+// other method handlers or route handlers. It also answers HEAD requests for
+// the path, unless a HEAD handler is registered for it.
 func (server *App) Get(path string, handler HandlerFunc) *App {
 	server.addMethod(http.MethodGet, server.currentFragment+path, handler)
 	return server
@@ -234,7 +235,8 @@ func (server *App) Options(path string, handler HandlerFunc) *App {
 // Add a HEAD handler
 //
 // Add a HEAD handler based on where you are in a hierarchy composed from
-// other method handlers or route handlers.
+// other method handlers or route handlers. It takes precedence over the GET
+// handler that would otherwise answer the HEAD.
 func (server *App) Head(path string, handler HandlerFunc) *App {
 	server.addMethod(http.MethodHead, server.currentFragment+path, handler)
 	return server
@@ -388,18 +390,37 @@ func (server *App) matchBeforeHandlers(call *Call) bool {
 }
 
 func (server *App) matchHandlers(call *Call) {
+	if server.callHandlerByMethod(call, call.Method()) {
+		return
+	}
+
+	// HEAD is GET without a body (RFC 9110 §9.3.2), so a path govalin has a GET
+	// for answers a HEAD with it — net/http drops the body the handler writes. A
+	// second pass rather than a fallback inside the lookup, so that a handler
+	// registered for HEAD wins wherever it sits in the route table.
+	if call.Method() == http.MethodHead {
+		server.callHandlerByMethod(call, http.MethodGet)
+	}
+}
+
+// callHandlerByMethod runs the first registered handler for the method whose
+// path matches the request, and reports whether the request was handled.
+func (server *App) callHandlerByMethod(call *Call, method string) bool {
 	for _, pathHandler := range server.pathHandlers {
 		if call.bypassLifecycle {
-			return
+			return true
 		}
 
-		if pathHandler.GetHandlerByMethod(call.Method()) != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
-			handler := pathHandler.GetHandlerByMethod(call.Method())
+		handler := pathHandler.GetHandlerByMethod(method)
+		if handler != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
 			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
 			handler(call)
-			break
+
+			return true
 		}
 	}
+
+	return false
 }
 
 func (server *App) matchAfterHandlers(call *Call) {
