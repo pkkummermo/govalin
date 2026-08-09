@@ -4,7 +4,9 @@
 
 Govalin is a public library, so an **exported identifier carries a doc comment** — that is the API
 reference, and godoc is where users read it. State the contract the caller gets, in a sentence or
-two.
+two. A doc comment may run longer when the contract does — what a caller cannot discover by reading
+the signature, such as which failures `Stream` returns and which it swallows. Length in a doc
+comment is a question about the contract; length inside a function body never is.
 
 Everything else defaults to **no comment**: inside a function, names and structure should carry the
 meaning.
