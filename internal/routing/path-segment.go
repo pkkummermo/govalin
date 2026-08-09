@@ -22,11 +22,6 @@ var (
 		PathNames:    []string{},
 		GroupedRegex: ".+?",
 	}
-	rootPathSegment = pathSegment{
-		PathPiece:    "/",
-		PathNames:    []string{},
-		GroupedRegex: "/",
-	}
 )
 
 func newPathSegment(pathPiece string) (pathSegment, error) {

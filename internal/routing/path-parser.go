@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"log/slog"
-
-	"github.com/pkkummermo/govalin/internal/util"
 )
 
 type PathMatcher struct {
@@ -16,7 +14,15 @@ type PathMatcher struct {
 }
 
 func NewPathMatcherFromString(path string) (PathMatcher, error) {
-	if path == "/" {
+	// A path holding nothing but slashes is the root path, spelled oddly — a
+	// route fragment and a path that both carry one produce it. Normalizing it
+	// here is what makes the matcher match the path the warning says it became,
+	// rather than the spellings it was written as.
+	if strings.Trim(path, "/ ") == "" {
+		if path != "/" {
+			slog.Warn(fmt.Sprintf("The path '%s' was converted to /", path))
+		}
+
 		return PathMatcher{
 			pathParamNames: []string{},
 			regexp:         *regexp.MustCompile("^/$"),
@@ -68,17 +74,6 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 func getPathSegments(path string) ([]pathSegment, error) {
 	pathSegments := []pathSegment{}
 	pathParts := strings.Split(path, "/")
-
-	// Handle "/" and multiple instances of just "///" without paths
-	if util.All(pathParts, func(part string) bool {
-		return strings.Trim(part, " ") == ""
-	}) {
-		if path != "/" {
-			slog.Warn(fmt.Sprintf("The path '%s' was converted to /", path))
-		}
-
-		return []pathSegment{rootPathSegment}, nil
-	}
 
 	for _, pathPiece := range pathParts {
 		trimmedString := strings.Trim(pathPiece, " ")

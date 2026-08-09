@@ -26,6 +26,22 @@ func TestRootMatching(t *testing.T) {
 	assert.Equal(t, false, pathMatcher.MatchesURL("/govalin/"), "Should not match on trailing slash")
 }
 
+// TestAllSlashPathIsTheRootPath pins the normalization the parser has always
+// warned about but never performed: a path of nothing but slashes is the root
+// path, so the root is what it matches. It used to compile to '^///?$', matching
+// every spelling except the one it said the path had become. A route fragment
+// and a path that both end in a slash produce exactly that, so it is reachable
+// from `app.Route("/", …)` around an `app.Get("/", …)`.
+func TestAllSlashPathIsTheRootPath(t *testing.T) {
+	for _, path := range []string{"//", "///", ""} {
+		pathMatcher, err := routing.NewPathMatcherFromString(path)
+
+		assert.Nil(t, err)
+		assert.Equal(t, true, pathMatcher.MatchesURL("/"), "'%s' should match the root it was converted to", path)
+		assert.Equal(t, false, pathMatcher.MatchesURL("//"), "'%s' should not match a doubled slash", path)
+	}
+}
+
 func TestSimpleWildcardMatch(t *testing.T) {
 	pathMatcher, err := routing.NewPathMatcherFromString("*")
 	assert.Nil(t, err)
