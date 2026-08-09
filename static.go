@@ -142,6 +142,16 @@ func (config *StaticConfig) serveFile(call *Call, hostedFileSystem fs.FS, name s
 	return nil
 }
 
+// serveWithFileServer hands the request to net/http for the two jobs govalin
+// leaves it: generating a directory listing, and redirecting a URL whose
+// trailing slash disagrees with what the name it addresses holds.
+func (config *StaticConfig) serveWithFileServer(call *Call, hostedFileSystem fs.FS) {
+	http.StripPrefix(
+		config.hostPath,
+		http.FileServer(http.FS(hostedFileSystem)),
+	).ServeHTTP(*call.Raw.W, call.Raw.Req)
+}
+
 func (config *StaticConfig) handle(call *Call) {
 	isFS := config.fsContent != nil
 
@@ -168,9 +178,14 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 		hostedFileSystem = root.FS()
 	}
 
+	// A trailing slash is the URL claiming the name addresses a directory. io/fs
+	// refuses a name carrying one, so it is kept here as a claim to answer
+	// against what the name turns out to hold, and dropped from the name itself.
+	namedAsDirectory := strings.HasSuffix(mountPath, "/")
+
 	// An fs.FS addresses entries relative to its root, and names the root
 	// directory itself "." rather than the empty string.
-	name := strings.TrimPrefix(mountPath, "/")
+	name := strings.TrimRight(strings.TrimPrefix(mountPath, "/"), "/")
 	if name == "" {
 		name = "."
 	}
@@ -180,6 +195,8 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 
 	var pathErr *fs.PathError
 
+	// A name the file system refuses is a missing file here: a '..' segment or an
+	// escaping symlink must not answer differently from a name that isn't there.
 	isNotFoundError := errors.Is(statErr, fs.ErrNotExist) || errors.As(statErr, &pathErr)
 
 	// Serve index if:
@@ -205,20 +222,27 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 		call.Status(http.StatusInternalServerError)
 		call.Error(statErr)
 		return
+	case fileInfo.IsDir() != namedAsDirectory:
+		// The URL's claim and the file system disagree, in either direction: the
+		// file server redirects to the spelling that addresses what is there, so
+		// that neither is served at both.
+		config.serveWithFileServer(call, hostedFileSystem)
+
+		return
 	case fileInfo.IsDir():
 		// A directory holding an index.html is serving a file, and goes through
 		// Call like any other so that it carries a validator — the mount root is
-		// the most requested URL a static site has. What is left is the file
-		// server's: a generated listing, which has no validator to derive, and a
-		// directory reached without its trailing slash, which it redirects.
+		// the most requested URL a static site has. Without one, the generated
+		// listing is the file server's, having no validator to derive.
 		indexName := path.Join(name, indexFileName)
-		_, indexErr := fs.Stat(hostedFileSystem, indexName)
-
-		if indexErr != nil || !strings.HasSuffix(call.URL().Path, "/") {
-			http.StripPrefix(
-				config.hostPath,
-				http.FileServer(http.FS(hostedFileSystem)),
-			).ServeHTTP(*call.Raw.W, call.Raw.Req)
+		if _, indexErr := fs.Stat(hostedFileSystem, indexName); indexErr != nil {
+			// Except on a SPA mount, which answers everything that is not a file
+			// with the shell, so its bundle is nobody's to enumerate.
+			if config.spaMode {
+				config.serveIndex(call, hostedFileSystem)
+			} else {
+				config.serveWithFileServer(call, hostedFileSystem)
+			}
 
 			return
 		}
