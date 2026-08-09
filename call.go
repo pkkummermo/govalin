@@ -62,9 +62,7 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 		uniqueID = govalinIDHeader[0]
 	}
 
-	// Everything writes through the recording writer, including handlers that
-	// take the raw writer, so govalin can tell whether the response has been
-	// committed no matter who committed it.
+	// Even Raw.W goes through the recording writer, so govalin sees a commit whoever made it.
 	recordingWriter := newResponseWriter(w)
 	var rawWriter http.ResponseWriter = recordingWriter
 
@@ -95,7 +93,6 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 func initiateSessionFromCall(call *Call) {
 	sessionCookie, getSessionErr := call.Cookie(sessionCookieName)
 
-	// Create the session if it doesn't exist
 	if errors.Is(getSessionErr, http.ErrNoCookie) {
 		addNewSessionErr := addNewSessionToCall(call)
 		if addNewSessionErr != nil {
@@ -105,7 +102,6 @@ func initiateSessionFromCall(call *Call) {
 	}
 
 	session, getSessionErr := call.config.server.sessionStore.GetSession(sessionCookie.Value, 0)
-	// The session might be expired, so we need to create a new one
 	if getSessionErr != nil {
 		slog.Debug("Failed to get session from session store, adding new session", "err", getSessionErr)
 		addNewSessionErr := addNewSessionToCall(call)
@@ -138,12 +134,7 @@ func addNewSessionToCall(call *Call) error {
 		Value:   sessionID,
 		Expires: time.Now().Add(call.config.server.sessionExpireTime),
 		Path:    "/",
-		// Harden the session cookie. HttpOnly keeps it out of reach of
-		// JavaScript and SameSite=Lax mitigates CSRF while allowing top-level
-		// navigations. Secure is enabled whenever the request is served over
-		// HTTPS (directly or behind a TLS-terminating proxy) so the cookie is
-		// restricted to secure transport in production without breaking
-		// plain-HTTP local development.
+		// Secure follows the request, so production gets it without breaking plain-HTTP local dev.
 		HttpOnly: true,
 		Secure:   call.isSecure(),
 		SameSite: http.SameSiteLaxMode,
@@ -184,9 +175,7 @@ func (call *Call) limitBody(maxSize int64) error {
 		return errBodyTooLarge
 	}
 
-	// The unwrapped writer: MaxBytesReader type-asserts it against an unexported
-	// net/http interface to close the connection on an over-long body, and an
-	// assertion does not see through the recording wrapper.
+	// Unwrapped: MaxBytesReader type-asserts net/http's own writer, which the wrapper hides.
 	call.req.Body = http.MaxBytesReader(call.w.ResponseWriter, call.req.Body, maxSize)
 
 	return nil
@@ -371,8 +360,7 @@ func (call *Call) sendStatusOrDefault() {
 		call.status = http.StatusOK
 	}
 
-	// A 304 sends no representation, so the headers describing one are dropped,
-	// whether the handler returned early or wrote a body about to be refused.
+	// A 304 sends no representation, so the headers describing one are dropped.
 	if call.status == http.StatusNotModified {
 		call.w.Header().Del(headers.ContentType)
 		call.w.Header().Del(headers.ContentLength)
@@ -801,8 +789,6 @@ func (call *Call) Error(err error) {
 
 	var validationErr *validation.Error
 	if errors.As(err, &validationErr) {
-		// Use the status the error carries so non-400 validation errors surface
-		// their real status.
 		call.Status(validationErr.Status())
 		call.JSON(validationErr.ErrorResponse)
 		return
@@ -849,7 +835,6 @@ func (call *Call) ValidatedFormParam(key string) *StringValidator {
 		value: value,
 		rules: make([]func(string, string) error, 0),
 	}
-	// If there's an error getting the form param, add it as a rule
 	if err != nil {
 		validator.rules = append(validator.rules, func(_, _ string) error { return err })
 	}
@@ -887,7 +872,6 @@ func (call *Call) ValidatedFormParamAsInt(key string) *IntValidator {
 		value: value,
 		rules: make([]func(int, string) error, 0),
 	}
-	// If there's an error getting the form param, add it as a rule
 	if err != nil {
 		validator.rules = append(validator.rules, func(_ int, _ string) error { return err })
 	}

@@ -182,7 +182,6 @@ func (v *IntValidator) Custom(fn func(int) bool, message string) *IntValidator {
 
 // Get validates the integer and returns it if valid.
 func (v *IntValidator) Get() (int, error) {
-	// First try to convert string to int
 	intVal, err := strconv.Atoi(v.value)
 	if err != nil {
 		return 0, validation.NewError(validation.NewErrorResponse(
@@ -191,7 +190,6 @@ func (v *IntValidator) Get() (int, error) {
 		))
 	}
 
-	// Then apply validation rules
 	for _, rule := range v.rules {
 		if errRule := rule(intVal, v.key); errRule != nil {
 			return 0, errRule
@@ -223,12 +221,10 @@ func (v *BodyValidator) Custom(validatorFn func(interface{}) bool, message strin
 
 // Get validates the body and returns error if invalid.
 func (v *BodyValidator) Get() error {
-	// First unmarshal the body
 	if err := v.call.BodyAs(v.target); err != nil {
 		return err
 	}
 
-	// Then apply validation rules
 	for _, rule := range v.rules {
 		if err := rule(v.target); err != nil {
 			return err

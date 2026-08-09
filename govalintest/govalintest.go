@@ -94,10 +94,7 @@ func TestWithOptions(t *testing.T, app *govalin.App, opts Options, fn func(clien
 	}()
 
 	t.Cleanup(func() {
-		// Hand the connections back before shutting down. A keep-alive connection
-		// the server has accepted but not yet read a request from does not count as
-		// idle, so Shutdown would wait for it until the read header timeout and
-		// then fail on its own deadline.
+		// An accepted connection with no request yet is not idle, so Shutdown would wait it out.
 		httpClient.CloseIdleConnections()
 
 		if err := app.Shutdown(); err != nil {

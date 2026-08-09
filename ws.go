@@ -179,12 +179,8 @@ func (server *App) Ws(path string, handlerFunc WsHandlerFunc) *App {
 	server.addMethod(http.MethodGet, server.currentFragment+path, func(call *Call) {
 		call.Status(http.StatusSwitchingProtocols)
 
-		// A websocket upgrade hijacks the connection (or, on failure, lets the
-		// upgrader write its own HTTP error), so the handler owns response
-		// finalization from here on — just like HTTPServe. Bypass the govalin
-		// lifecycle to suppress the end-of-request status flush, which would
-		// otherwise attempt a WriteHeader on the hijacked connection. See
-		// CONTEXT.md "Lifecycle bypass".
+		// The upgrader owns the response from here: it hijacks the connection, or writes its
+		// own HTTP error. See CONTEXT.md, "Lifecycle bypass".
 		call.bypassLifecycle = true
 
 		wsCall, upgradeErr := wsConfig.OnUpgrade(call)

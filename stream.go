@@ -31,8 +31,7 @@ func (call *Call) Stream(contentType string, reader io.Reader) error {
 
 	call.sendStatusOrDefault()
 
-	// io.Copy reports a read and a write failure the same way, and the two call
-	// for opposite answers, so the source keeps its own error.
+	// io.Copy cannot say which side failed, and the two sides call for opposite answers.
 	source := &sourceReader{reader: reader}
 
 	if _, err := io.Copy(call.w, source); err != nil {
@@ -75,8 +74,7 @@ func (source *sourceReader) Read(buffer []byte) (int, error) {
 func (call *Call) ServeContent(name string, modTime time.Time, content io.ReadSeeker) {
 	http.ServeContent(call.w, call.req, name, modTime, content)
 
-	// Keep the buffered status in step with what went out, so after handlers see
-	// the real status.
+	// After handlers read the buffered status, so it has to match what went out.
 	call.status = call.w.status
 }
 
