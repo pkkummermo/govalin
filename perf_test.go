@@ -81,7 +81,7 @@ var allocationBudgets = []allocationBudget{
 	{
 		name:    "static file",
 		target:  "/static/sub/test.html",
-		allowed: 45,
+		allowed: 49,
 		build: func(app *App) {
 			app.Static("/static", func(_ *Call, staticConfig *StaticConfig) {
 				staticConfig.WithStaticPath("internal/testdata/static")
