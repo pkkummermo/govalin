@@ -59,13 +59,17 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 		groupRegexpParts = append(groupRegexpParts, ps.GroupedRegex)
 	}
 
+	// A trailing slash on the pattern makes the URL's trailing slash optional. It
+	// is appended after the join rather than as a segment of its own, which would
+	// put a mandatory slash in front of the optional one and leave the pattern
+	// matching only the doubled form.
+	optionalTrailingSlash := ""
 	if strings.HasSuffix(path, "/") {
-		groupRegexpParts = append(groupRegexpParts, "/?")
-		regexpParts = append(regexpParts, "/?")
+		optionalTrailingSlash = "/?"
 	}
 
-	fullGroupedRegexpString := "^/" + strings.Join(groupRegexpParts, "/") + "$"
-	fullRegexpString := "^/" + strings.Join(regexpParts, "/") + "$"
+	fullGroupedRegexpString := "^/" + strings.Join(groupRegexpParts, "/") + optionalTrailingSlash + "$"
+	fullRegexpString := "^/" + strings.Join(regexpParts, "/") + optionalTrailingSlash + "$"
 
 	return PathMatcher{
 		path:           path,

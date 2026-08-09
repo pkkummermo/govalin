@@ -80,6 +80,23 @@ func TestGet(t *testing.T) {
 	})
 }
 
+// TestRouteRegisteredWithATrailingSlash covers the non-static half of the same
+// bug the static mount root had: a route registered with a trailing slash was
+// reachable only at the spelling it was registered with, and answered 404 at the
+// other. Both are the route's, and what the handler makes of the difference is
+// its own business.
+func TestRouteRegisteredWithATrailingSlash(t *testing.T) {
+	app := newTestApp()
+	app.Get("/users/", func(call *govalin.Call) {
+		call.Text("users")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		assert.Equal(t, "users", client.Get("/users/"), "The registered spelling should be served")
+		assert.Equal(t, "users", client.Get("/users"), "So should the slashless one")
+	})
+}
+
 func TestPost(t *testing.T) {
 	app := newTestApp()
 	app.Post("/post", func(call *govalin.Call) {
