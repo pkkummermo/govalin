@@ -627,6 +627,14 @@ func (call *Call) Status(statusCode ...int) int {
 	return call.status
 }
 
+// writeBody writes a response body, reporting a failure to write it as an error
+// on the call's behalf.
+func (call *Call) writeBody(data []byte) {
+	if _, err := call.w.Write(data); err != nil {
+		slog.Error(fmt.Sprintf("Error when trying write to response, %v", err))
+	}
+}
+
 // Send text as pure text to response
 //
 // Text will set the content-type of the response as text/plain and write it to the response.
@@ -634,11 +642,7 @@ func (call *Call) Status(statusCode ...int) int {
 func (call *Call) Text(text string) {
 	call.w.Header().Add(headers.ContentType, headers.ContentTypeHeader(contenttypes.TextPlain, call.charset))
 	call.sendStatusOrDefault()
-
-	_, err := call.w.Write([]byte(text))
-	if err != nil {
-		slog.Error(fmt.Sprintf("Error when trying write to response, %v", err))
-	}
+	call.writeBody([]byte(text))
 }
 
 // Send text as HTML to response
@@ -648,11 +652,7 @@ func (call *Call) Text(text string) {
 func (call *Call) HTML(text string) {
 	call.w.Header().Add(headers.ContentType, headers.ContentTypeHeader(contenttypes.TextHTML, call.charset))
 	call.sendStatusOrDefault()
-
-	_, err := call.w.Write([]byte(text))
-	if err != nil {
-		slog.Error(fmt.Sprintf("Error when trying write to response, %v", err))
-	}
+	call.writeBody([]byte(text))
 }
 
 // Send obj as JSON to response
@@ -668,11 +668,7 @@ func (call *Call) JSON(obj interface{}) {
 	}
 
 	call.sendStatusOrDefault()
-
-	_, err = call.w.Write(jsonBytes)
-	if err != nil {
-		slog.Error(fmt.Sprintf("error when trying write to response, %v", err))
-	}
+	call.writeBody(jsonBytes)
 }
 
 // Redirect redirects the request to the given URL
