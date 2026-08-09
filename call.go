@@ -371,6 +371,13 @@ func (call *Call) sendStatusOrDefault() {
 		call.status = http.StatusOK
 	}
 
+	// A 304 sends no representation, so the headers describing one are dropped,
+	// whether the handler returned early or wrote a body about to be refused.
+	if call.status == http.StatusNotModified {
+		call.w.Header().Del(headers.ContentType)
+		call.w.Header().Del(headers.ContentLength)
+	}
+
 	call.w.WriteHeader(call.status)
 }
 
@@ -627,10 +634,11 @@ func (call *Call) Status(statusCode ...int) int {
 	return call.status
 }
 
-// writeBody writes a response body, reporting a failure to write it as an error
-// on the call's behalf.
+// writeBody writes a response body. The refusal net/http answers when the status
+// forbids one is not worth reporting: a handler that produced a body after
+// NotModified matched wasted its own work, and the response is still correct.
 func (call *Call) writeBody(data []byte) {
-	if _, err := call.w.Write(data); err != nil {
+	if _, err := call.w.Write(data); err != nil && !errors.Is(err, http.ErrBodyNotAllowed) {
 		slog.Error(fmt.Sprintf("Error when trying write to response, %v", err))
 	}
 }
