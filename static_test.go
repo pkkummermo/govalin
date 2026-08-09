@@ -171,6 +171,47 @@ func TestStaticServesRanges(t *testing.T) {
 	})
 }
 
+// TestStaticServesHead covers what a static mount answers a cache probe: the
+// file server underneath already suppresses the body and sends the headers that
+// describe the file, so only the route lookup stood between a HEAD and them.
+func TestStaticServesHead(t *testing.T) {
+	staticRoot, _ := fs.Sub(staticTestFiles, "internal/testdata/static")
+
+	app := newTestApp()
+	app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(staticRoot)
+	})
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		for _, mount := range []string{"/fs", "/static"} {
+			served := client.GetResponse(mount + "/index.html")
+			body := readBody(t, served)
+
+			headed := client.HeadResponse(mount + "/index.html")
+
+			assert.Equal(t, http.StatusOK, headed.StatusCode, "A HEAD on %s should be served", mount)
+			assert.Equal(
+				t,
+				served.Header.Get("ETag"),
+				headed.Header.Get("ETag"),
+				"A HEAD on %s should carry the same validator as the GET",
+				mount,
+			)
+			assert.Equal(
+				t,
+				int64(len(body)),
+				headed.ContentLength,
+				"A HEAD on %s should describe the length of the file",
+				mount,
+			)
+			assert.Empty(t, readBody(t, headed), "A HEAD on %s should carry no body", mount)
+		}
+	})
+}
+
 // TestStaticDerivesValidators covers both mount kinds getting a validator
 // without being asked: a disk mount from modification time and size, an
 // embedded one — which reports no modification time at all — from its content.

@@ -120,16 +120,7 @@ func TestNotModifiedMatchesATagContainingAComma(t *testing.T) {
 }
 
 func TestNotModifiedAnswersHead(t *testing.T) {
-	app := newTestApp()
-	app.Head("/resource", func(call *govalin.Call) {
-		if call.NotModified("v3") {
-			return
-		}
-
-		call.Text("the representation")
-	})
-
-	govalintest.Test(t, app, func(client *govalintest.Client) {
+	govalintest.Test(t, etagApp(t, "v3"), func(client *govalintest.Client) {
 		response := revalidate(t, client, http.MethodHead, "/resource", `"v3"`)
 
 		assert.Equal(t, http.StatusNotModified, response.StatusCode, "Should revalidate a HEAD")

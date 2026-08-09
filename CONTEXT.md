@@ -256,6 +256,13 @@ to. The 304 is buffered the moment the match is found, so a handler that produce
 sends a correct empty 304 — it has wasted only its own work.
 _Avoid_: correctness that depends on the caller reading a return value, a body inside a 304
 
+**Implied HEAD**:
+A HEAD answered by the route's GET handler, because HEAD is GET without a body. A handler registered
+for HEAD replaces it wherever it sits in the route table — that is how a route buys the right to skip
+producing a body, since net/http discards the one an implied HEAD writes. OPTIONS gets no
+equivalent: its response is not a representation of the resource, and CORS already owns that path.
+_Avoid_: 404 on a path that has a GET, an implied HEAD shadowing a registered one, GET-derived OPTIONS
+
 ## Relationships
 
 - A **Race-clean build** is a required outcome of the **Stability gate**
@@ -308,6 +315,10 @@ _Avoid_: correctness that depends on the caller reading a return value, a body i
 - A **Revalidation short-circuit** buffers 304 like any other **Buffered status**, so **Status flush** and **Committed response** govern it unchanged
 - A 304 carries no representation, so the **Status flush** drops the headers that describe one
 - A **Strong validator** is what keeps **Ranged content** resumable across a revalidation
+- An **Implied HEAD** is what lets a static mount answer a cache probe: the **Derived validator** and
+  the length are already on the response its GET handler produces
+- An **Implied HEAD** is logged as the HEAD it is; that a GET handler answered it is routing, not
+  something the client did
 
 ## Example dialogue
 
