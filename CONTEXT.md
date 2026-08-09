@@ -284,6 +284,14 @@ producing a body, since net/http discards the one an implied HEAD writes. OPTION
 equivalent: its response is not a representation of the resource, and CORS already owns that path.
 _Avoid_: 404 on a path that has a GET, an implied HEAD shadowing a registered one, GET-derived OPTIONS
 
+**Optional trailing slash**:
+A trailing slash on a registered route pattern makes the URL's trailing slash optional: both
+spellings reach the handler, which is the layer that decides which of them is canonical. A doubled
+slash is not the route — the matcher decides which URLs are the route's own rather than relying on
+the mux in front of it to have cleaned them first.
+_Avoid_: a route reachable only at the spelling it was registered with, a doubled slash matching,
+routing that assumes upstream path cleanup
+
 ## Relationships
 
 - A **Race-clean build** is a required outcome of the **Stability gate**
@@ -298,6 +306,9 @@ _Avoid_: 404 on a path that has a GET, an implied HEAD shadowing a registered on
 - Benchmark timings are advisory context for an **Allocation budget**, never the gate themselves
 - **Gate-first execution order** resolves blocking quality gates before static-route redesign
 - **Canonical static mount URL** is the trailing-slash path, with redirect from non-slash form
+- An **Optional trailing slash** is what puts a **Canonical static mount URL** within reach: both
+  spellings of the mount root route to it, so the redirect from the non-slash form has somewhere to
+  come from
 - **Permanent canonical redirect** applies to static mount root normalization
 - **Query-preserving canonicalization** keeps request query parameters unchanged during static mount redirect
 - **Framework-wide redirect integrity** applies query preservation to every framework-generated redirect
