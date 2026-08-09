@@ -3,6 +3,7 @@ package govalin
 import (
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 )
 
 // StaticConfig contains configuration for a static handler.
@@ -19,14 +21,16 @@ type StaticConfig struct {
 	spaMode    bool
 	staticPath string
 	fsContent  fs.FS
+	validators *sync.Map
 }
 
-func newStaticConfig() *StaticConfig {
+func newStaticConfig(validators *sync.Map) *StaticConfig {
 	return &StaticConfig{
 		hostPath:   "/",
 		spaMode:    false,
 		staticPath: "static",
 		fsContent:  nil,
+		validators: validators,
 	}
 }
 
@@ -58,6 +62,53 @@ func failStatic(call *Call, err error, message string) {
 	}
 }
 
+// validatorFor derives the validator for a static file: from when the file
+// changed if the file system knows, from what it contains if it does not. An
+// embedded file system reports no modification time, so content is all that is
+// left to identify a file by, and the hash is paid once for the mount's life.
+//
+// Both forms are strong tags, because net/http requires a strong match for
+// If-Range and a weak one would quietly cost every resumed download its ranges.
+func (config *StaticConfig) validatorFor(hostedFileSystem fs.FS, name string, fileInfo fs.FileInfo) string {
+	if !fileInfo.ModTime().IsZero() {
+		return fmt.Sprintf("%x-%x", fileInfo.ModTime().UnixNano(), fileInfo.Size())
+	}
+
+	if cached, isCached := config.validators.Load(name); isCached {
+		return cached.(string)
+	}
+
+	etag, hashErr := hashFile(hostedFileSystem, name)
+	if hashErr != nil {
+		// A validator we could not derive only means the client revalidates next time.
+		slog.Debug("Failed to hash a static file for its validator", "name", name, "err", hashErr)
+
+		return ""
+	}
+
+	config.validators.Store(name, etag)
+
+	return etag
+}
+
+// hashFile derives a validator from a file's content, on its own handle so the
+// one being served keeps its position.
+func hashFile(hostedFileSystem fs.FS, name string) (string, error) {
+	file, openErr := hostedFileSystem.Open(name)
+	if openErr != nil {
+		return "", openErr
+	}
+	defer func() { _ = file.Close() }()
+
+	// Not a security boundary: this names a version, it does not attest to one.
+	hash := fnv.New64a()
+	if _, copyErr := io.Copy(hash, file); copyErr != nil {
+		return "", copyErr
+	}
+
+	return fmt.Sprintf("%x", hash.Sum64()), nil
+}
+
 // serveFile sends a file from the mounted file system through Call, so the
 // response stays inside the govalin lifecycle and Range requests are answered.
 func (config *StaticConfig) serveFile(call *Call, hostedFileSystem fs.FS, name string) error {
@@ -70,6 +121,12 @@ func (config *StaticConfig) serveFile(call *Call, hostedFileSystem fs.FS, name s
 	fileInfo, statErr := file.Stat()
 	if statErr != nil {
 		return statErr
+	}
+
+	// Both sinks below revalidate the same way, so the check happens here rather
+	// than in http.ServeContent, which only the seekable one reaches.
+	if etag := config.validatorFor(hostedFileSystem, name, fileInfo); etag != "" && call.NotModified(etag) {
+		return nil
 	}
 
 	// Range support needs to seek. Every file system govalin mounts (an os.Root
@@ -149,14 +206,24 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 		call.Error(statErr)
 		return
 	case fileInfo.IsDir():
-		// A directory is the file server's job: it owns the trailing-slash
-		// canonicalization and the directory index.
-		http.StripPrefix(
-			config.hostPath,
-			http.FileServer(http.FS(hostedFileSystem)),
-		).ServeHTTP(*call.Raw.W, call.Raw.Req)
+		// A directory holding an index.html is serving a file, and goes through
+		// Call like any other so that it carries a validator — the mount root is
+		// the most requested URL a static site has. What is left is the file
+		// server's: a generated listing, which has no validator to derive, and a
+		// directory reached without its trailing slash, which it redirects.
+		indexName := path.Join(name, indexFileName)
+		_, indexErr := fs.Stat(hostedFileSystem, indexName)
 
-		return
+		if indexErr != nil || !strings.HasSuffix(call.URL().Path, "/") {
+			http.StripPrefix(
+				config.hostPath,
+				http.FileServer(http.FS(hostedFileSystem)),
+			).ServeHTTP(*call.Raw.W, call.Raw.Req)
+
+			return
+		}
+
+		name = indexName
 	}
 
 	failStatic(
@@ -209,8 +276,12 @@ func (server *App) Static(path string, staticHandlerFunc StaticHandlerFunc) *App
 	normalizedPath := strings.TrimRight(path, "/*")
 	wildcardPath := normalizedPath + "/*"
 
+	// The config is rebuilt per request, so hashed validators live out here with
+	// the mount they describe — which is what makes the file name a sufficient key.
+	validators := &sync.Map{}
+
 	staticGetHandler := func(call *Call) {
-		internalConfig := newStaticConfig()
+		internalConfig := newStaticConfig(validators)
 		internalConfig.HostPath(normalizedPath)
 
 		staticHandlerFunc(call, internalConfig)

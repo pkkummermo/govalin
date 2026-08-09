@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/govalintest"
@@ -167,6 +168,168 @@ func TestStaticServesRanges(t *testing.T) {
 				mount,
 			)
 		}
+	})
+}
+
+// TestStaticDerivesValidators covers both mount kinds getting a validator
+// without being asked: a disk mount from modification time and size, an
+// embedded one — which reports no modification time at all — from its content.
+func TestStaticDerivesValidators(t *testing.T) {
+	staticRoot, _ := fs.Sub(staticTestFiles, "internal/testdata/static")
+
+	app := newTestApp()
+	app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(staticRoot)
+	})
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		for _, mount := range []string{"/fs", "/static"} {
+			served := client.GetResponse(mount + "/index.html")
+			etag := served.Header.Get("ETag")
+
+			assert.NotEmpty(t, etag, "A file served from %s should carry a validator", mount)
+			assert.Contains(t, readBody(t, served), "Hello world", "%s should serve the file", mount)
+
+			revalidated := revalidate(t, client, http.MethodGet, mount+"/index.html", etag)
+			assert.Equal(
+				t,
+				http.StatusNotModified,
+				revalidated.StatusCode,
+				"Revalidating a file on %s should be answered with a 304",
+				mount,
+			)
+			assert.Empty(t, readBody(t, revalidated), "A 304 from %s should carry no body", mount)
+		}
+	})
+}
+
+// TestStaticDerivesValidatorsForDirectoryIndexes covers the URL a static site is
+// asked for most: the mount root, and any directory holding an index.html. These
+// used to be handed to http.FileServer, which sends no validator, so the SPA
+// shell on an embedded mount was the one file that could not be revalidated.
+func TestStaticDerivesValidatorsForDirectoryIndexes(t *testing.T) {
+	bundle := fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("shell")}}
+
+	app := newTestApp()
+	app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(bundle)
+	})
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		for _, mountRoot := range []string{"/fs/", "/static/"} {
+			served := client.GetResponse(mountRoot)
+			etag := served.Header.Get("ETag")
+
+			assert.NotEmpty(t, etag, "%s should carry a validator", mountRoot)
+
+			revalidated := revalidate(t, client, http.MethodGet, mountRoot, etag)
+			assert.Equal(
+				t,
+				http.StatusNotModified,
+				revalidated.StatusCode,
+				"Revalidating %s should be answered with a 304",
+				mountRoot,
+			)
+		}
+	})
+}
+
+// TestStaticLeavesTheFileServerItsWork pins the other half of that split: a
+// directory with no index.html is still the file server's to list, and a
+// directory reached without its trailing slash is still its to redirect.
+func TestStaticLeavesTheFileServerItsWork(t *testing.T) {
+	indexless := fstest.MapFS{"notes/readme.txt": &fstest.MapFile{Data: []byte("notes")}}
+
+	app := newTestApp()
+	app.Static("/listing", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(indexless)
+	})
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		client.HTTP().CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+
+		listing := client.GetResponse("/listing/")
+		assert.Equal(t, 200, listing.StatusCode, "A mount with no index should still be listed")
+		assert.Contains(t, readBody(t, listing), "notes", "The listing should name the directory's entries")
+		assert.Empty(t, listing.Header.Get("ETag"), "A generated listing has no validator to derive")
+
+		redirect := client.GetResponse("/static/sub")
+		assert.Equal(
+			t,
+			http.StatusMovedPermanently,
+			redirect.StatusCode,
+			"A directory without its trailing slash should still redirect",
+		)
+	})
+}
+
+// TestStaticValidatorFollowsContentWithoutAClock is the reason an embedded file
+// is hashed rather than measured. Two builds of a bundle can differ in content
+// at identical size — a version bump of the same length — and with no
+// modification time to fall back on, a size-derived tag would keep every client
+// on the old copy indefinitely.
+func TestStaticValidatorFollowsContentWithoutAClock(t *testing.T) {
+	etagFor := func(t *testing.T, content string) string {
+		t.Helper()
+
+		bundle := fstest.MapFS{"app.js": &fstest.MapFile{Data: []byte(content)}}
+
+		app := newTestApp()
+		app.Static("/assets", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+			staticConfig.WithFS(bundle)
+		})
+
+		var etag string
+
+		govalintest.Test(t, app, func(client *govalintest.Client) {
+			etag = client.GetResponse("/assets/app.js").Header.Get("ETag")
+		})
+
+		return etag
+	}
+
+	before := etagFor(t, `const version = "1.0.9"`)
+	after := etagFor(t, `const version = "1.1.0"`)
+
+	assert.NotEmpty(t, before, "An embedded file should carry a validator despite having no modification time")
+	assert.NotEqual(t, before, after, "A same-length change should change the validator")
+}
+
+// TestStaticValidatorKeepsRangesResumable pins the reason derived validators are
+// strong: net/http requires a strong match for If-Range, so a weak tag would
+// turn every resumed download back into a full one.
+func TestStaticValidatorKeepsRangesResumable(t *testing.T) {
+	app := newTestApp()
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		full := readBody(t, client.GetResponse("/static/index.html"))
+		etag := client.GetResponse("/static/index.html").Header.Get("ETag")
+
+		request, err := http.NewRequest(http.MethodGet, client.Host+"/static/index.html", nil)
+		if err != nil {
+			t.Fatalf("failed to build a ranged request: %v", err)
+		}
+
+		request.Header.Set("Range", "bytes=0-4")
+		request.Header.Set("If-Range", etag)
+
+		partial := client.Do(request)
+		assert.Equal(t, 206, partial.StatusCode, "A resume against the served validator should stay ranged")
+		assert.Equal(t, full[:5], readBody(t, partial), "A 206 should carry exactly the requested bytes")
 	})
 }
 
