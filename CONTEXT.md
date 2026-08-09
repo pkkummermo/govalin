@@ -205,6 +205,27 @@ a name that leaves that directory — including through a symlink — is refused
 comparing cleaned path strings.
 _Avoid_: prefix-comparison containment, cleaned-path-as-proof, stat-then-open resolution
 
+**Trailing-slash directory claim**:
+A trailing slash on a static URL is the request claiming the name addresses a directory. The name
+handed to the file system never carries one, because `io/fs` refuses it, so the claim is answered
+separately: a directory serves its index or its listing, and a name that turns out to hold a file is
+redirected to its slashless URL.
+_Avoid_: a trailing slash reaching an fs name, one file served at both spellings
+
+**Refused name**:
+A name the mounted file system will not resolve, for any reason it gives — a `..` segment, a symlink
+leaving the root, a directory it may not read. Answered as a missing file, deliberately
+indistinguishable from one, because an answer that varied with the reason tells a prober which names
+are there. The bluntness is the point, which is why a name govalin malformed itself must never reach
+it: there is nothing downstream that can tell the two apart.
+_Avoid_: 500 for a name that escapes the root, the reason a name failed visible in the response
+
+**SPA fallback**:
+What a mount in SPA mode answers with when a URL addresses no file it holds: the shell, on the
+grounds that the route belongs to the client. A directory is not a file it holds, so the fallback
+covers that too and a SPA bundle is never enumerated.
+_Avoid_: a generated listing of a SPA bundle, 404 for a client-side route
+
 **Request-controlled value**:
 A value the client alone decides — request path, `User-Agent`. Unbounded in length and unconstrained
 in content until govalin bounds it.
@@ -308,6 +329,9 @@ _Avoid_: 404 on a path that has a GET, an implied HEAD shadowing a registered on
 - The **Body size limit** and the **Multipart size limit** bound what the server accepts; the **Multipart memory budget** bounds only where an accepted upload is stored
 - **Declared-length rejection** is the first enforcement step for every limit, with the limiter as the fallback for bodies of unknown length
 - **Root-confined static access** replaces path-string containment: the static mount is a resource the OS confines, not a prefix the framework checks
+- A **Trailing-slash directory claim** carries **Canonical static mount URL** below the mount root: one spelling serves the resource, the other redirects to it
+- A **Refused name** is where **Root-confined static access** stops being visible: what the OS refused is not reported back, only that nothing was found
+- A **SPA fallback** takes precedence over a generated listing, but never over a **Trailing-slash directory claim**: a spelling that disagrees with the file system is redirected in either mode
 - A **Request-controlled value** reaching a log becomes a **Log-safe value** first; there is no path from a header to a log sink that skips it
 - The **Correlation ID** is the deliberate exception: client-chosen and logged verbatim, because propagating it is the feature
 - **Cache validation** is answered on safe methods only; the same header on an unsafe method is a precondition, and out of scope
