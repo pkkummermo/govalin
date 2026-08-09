@@ -223,6 +223,39 @@ otherwise. It is deliberately *not* a **Log-safe value**: a caller propagates it
 find the request in govalin's log, and appearing verbatim in every record is the point of having one.
 _Avoid_: sanitizing the ID for the log, framework-imposed ID formats that break propagation
 
+**Cache validation**:
+A client asking whether the copy it already holds is still current, and being answered 304 with no
+body when it is. A bandwidth feature, on safe methods only. Distinct from a precondition on an unsafe
+method (`If-Match`, 412), which borrows the same header vocabulary to answer a different question —
+lost updates, not stale copies.
+_Avoid_: "ETag support" as one undivided feature, If-None-Match meaning the same thing on a write as
+on a read
+
+**Validator**:
+The opaque token naming a version of a resource. Supplied by the caller out of something it already
+knows — a row version, an updated_at, a digest — never computed by the framework from a response body
+it has already paid to produce.
+_Avoid_: post-hoc body hashing, buffering a response in order to validate it
+
+**Derived validator**:
+The **Validator** govalin computes for a static asset without being asked: from when the file changed
+if the file system knows, from what the file contains if it does not. A file system reporting no
+modification time is declaring it has no change signal, so content is the only thing left that
+identifies the file.
+_Avoid_: size-only tags for embedded assets, mtime tags from a file system with no clock
+
+**Strong validator**:
+A **Validator** asserting byte-exact identity, sent unprefixed. The weak form (`W/`) asserts only
+equivalence, and a range resume cannot be built on it: the client's `If-Range` is refused and the
+whole body is sent again. Every **Derived validator** is strong.
+_Avoid_: weak tags on rangeable content, `W/` as a default hedge
+
+**Revalidation short-circuit**:
+What a matched **Validator** buys a handler: permission to skip producing a body, never an obligation
+to. The 304 is buffered the moment the match is found, so a handler that produces a body anyway still
+sends a correct empty 304 — it has wasted only its own work.
+_Avoid_: correctness that depends on the caller reading a return value, a body inside a 304
+
 ## Relationships
 
 - A **Race-clean build** is a required outcome of the **Stability gate**
@@ -270,6 +303,11 @@ _Avoid_: sanitizing the ID for the log, framework-imposed ID formats that break 
 - **Root-confined static access** replaces path-string containment: the static mount is a resource the OS confines, not a prefix the framework checks
 - A **Request-controlled value** reaching a log becomes a **Log-safe value** first; there is no path from a header to a log sink that skips it
 - The **Correlation ID** is the deliberate exception: client-chosen and logged verbatim, because propagating it is the feature
+- **Cache validation** is answered on safe methods only; the same header on an unsafe method is a precondition, and out of scope
+- A **Derived validator** exists only for static assets; every other response's **Validator** comes from the caller
+- A **Revalidation short-circuit** buffers 304 like any other **Buffered status**, so **Status flush** and **Committed response** govern it unchanged
+- A 304 carries no representation, so the **Status flush** drops the headers that describe one
+- A **Strong validator** is what keeps **Ranged content** resumable across a revalidation
 
 ## Example dialogue
 
@@ -281,3 +319,4 @@ _Avoid_: sanitizing the ID for the log, framework-imposed ID formats that break 
 - "tests pass" was used to mean only default test execution and also all quality gates; resolved: release readiness requires passing mandatory stability gates, including race checks.
 - CI currently runs default tests but does not run race tests; resolved: race-clean will be enforced in CI as a mandatory gate.
 - Existing HTTP->HTTPS plugin redirect currently uses only URL path and drops query parameters; resolved: query-preserving behavior applies framework-wide and this behavior must be aligned.
+- "ETag support" was used to mean both cache validation and optimistic concurrency control; resolved: this work is cache validation only, and a precondition on an unsafe method is a separate feature that would need its own name.
