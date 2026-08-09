@@ -46,7 +46,6 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 	}
 
 	var pathParamNames = []string{}
-	// Extract path param names
 	for _, ps := range pathSegments {
 		pathParamNames = append(pathParamNames, ps.PathNames...)
 	}

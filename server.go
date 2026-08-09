@@ -256,21 +256,16 @@ func (server *App) Start(port ...uint16) error {
 		server.port = server.config.server.port
 	}
 
-	// Reserve port and buffer incoming connections
 	listener, listenerErr := net.Listen("tcp", fmt.Sprintf(":%d", server.port))
 	if listenerErr != nil {
 		return listenerErr
 	}
 
-	// Read the port back from the listener so the bound port is authoritative.
-	// When the configured port is 0 the OS assigns a free port, which is only
-	// reflected in listener.Addr(); without this, server.port would stay 0 and
-	// Port() would report a port the server is not listening on.
+	// A configured port of 0 is assigned by the OS, and only listener.Addr() knows what it got.
 	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok {
 		server.port = uint16(tcpAddr.Port)
 	}
 
-	// Initialize all plugins
 	for _, plugin := range server.config.server.plugins {
 		slog.Debug(fmt.Sprintf("Plugins: Running Apply for '%s'", plugin.Name()))
 		plugin.Apply(server)
@@ -377,7 +372,6 @@ func (server *App) matchBeforeHandlers(call *Call) bool {
 		if pathHandler.Before != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
 			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
 
-			// Return false means short circuit, return false
 			if !pathHandler.Before(call) {
 				return false
 			}
@@ -425,60 +419,44 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		map[string]string{},
 	)
 
-	// Log the access log once, on every exit path, so requests that take over
-	// the lifecycle (e.g. HTTPServe) or short-circuit in a before handler are
-	// logged consistently and only when access logging is enabled.
+	// Deferred so a bypassed or short-circuited request is logged like any other.
 	if server.config.server.accessLogEnabled {
 		defer func() {
 			server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
 		}()
 	}
 
-	// Flush the buffered status on every non-bypass exit path so a handler (or a
-	// short-circuiting before handler) that sets a status but writes no body
-	// still sends that status instead of an implicit 200 OK. The bypass check is
-	// evaluated when the defer runs, not when it is registered, because
-	// HTTPServe sets bypassLifecycle inside the handler which runs after this
-	// point; a snapshot here would wrongly flush over a raw response. Registered
-	// after the access-log defer so LIFO ordering flushes before the log records
-	// the status. sendStatusOrDefault is idempotent, so an already-written
-	// response is left untouched.
+	// Registered after the access-log defer so LIFO flushes the status before it is logged.
+	// bypassLifecycle is read when the defer runs; HTTPServe sets it later, inside the handler.
 	defer func() {
 		if !call.bypassLifecycle {
 			call.sendStatusOrDefault()
 		}
 	}()
 
-	// Look for before handlers
 	if !server.matchBeforeHandlers(&call) || call.bypassLifecycle {
 		return
 	}
 
-	// Look for endpoint handler
 	server.matchHandlers(&call)
 	if call.bypassLifecycle {
 		return
 	}
 
-	// Look for After handlers
 	server.matchAfterHandlers(&call)
 	if call.bypassLifecycle {
 		return
 	}
 
-	// No status set and nothing written, meaning no handlers have handled the
-	// request properly, ie 404 / not found. A handler that wrote the response
-	// itself without setting a status has handled it; appending a 404 body to
-	// what it sent would corrupt the response.
+	// A handler that wrote without setting a status has handled it; a 404 body would corrupt it.
 	if call.Status() == 0 && !call.committed() {
 		server.notFoundHandler(&call)
 	}
 }
 
 func (server *App) logAccessLog(call *Call, durationInMS float64) {
-	// Path and user agent come straight off the wire and are capped by nothing
-	// else, so bound them rather than let a request decide how large a log line
-	// is. The call ID is deliberately logged as sent — see ADR 0006.
+	// The call ID is deliberately logged as sent, unlike the other request-controlled
+	// values here — see ADR 0006.
 	slog.Info(
 		"incoming request",
 		slog.String("id", call.ID()),

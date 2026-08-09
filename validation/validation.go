@@ -8,8 +8,6 @@ import (
 	"github.com/pkkummermo/govalin/internal/validation"
 )
 
-// Validation types exposed without problematic generic type aliases
-
 // NewStringValidator provides type-safe string validation.
 func NewStringValidator() *validation.Validator[string] {
 	return validation.Validate[string]()

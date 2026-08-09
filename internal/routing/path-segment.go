@@ -37,22 +37,18 @@ func newPathSegment(pathPiece string) (pathSegment, error) {
 	delimiterEndCount := strings.Count(pathPiece, delimiterEnd)
 	totalDelimiters := delimiterStartCount + delimiterEndCount
 
-	// Error in number of delimiters
 	if delimiterStartCount != delimiterEndCount {
 		return pathSegment{}, fmt.Errorf("number of '%d' and '%d' is not the same", delimiterStartCount, delimiterEndCount)
 	}
 
-	// Wildcard
 	if pathPiece == wildcard {
 		return wildcardPathSegment, nil
 	}
 
-	// No matcher
 	if totalDelimiters == 0 {
 		return createNormalPathSegment(pathPiece), nil
 	}
 
-	// Simple matcher
 	if totalDelimiters == 2 && pathPiece[0:1] == delimiterStart && pathPiece[len(pathPiece)-1:] == delimiterEnd {
 		return createParameterPathSegment(pathPiece), nil
 	}
