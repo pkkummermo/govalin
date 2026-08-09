@@ -67,6 +67,43 @@ govalin.New().
 mid-body — is not returned: the header is already sent, so there is nothing left to answer with. It
 is logged at debug level.
 
+## Caching
+
+`NotModified` answers a client that already has the resource, so a revalidation costs headers
+instead of a body:
+
+```go
+govalin.New().
+	Get("/users/{id}", func(call *govalin.Call) {
+		user := store.Load(call.PathParam("id"))
+
+		if call.NotModified(user.Version) {
+			return
+		}
+
+		call.JSON(user)
+	}).
+	Start(7070)
+```
+
+The tag is yours, out of something you already know — a row version, an `updated_at`, a digest.
+Govalin never hashes a response body to make one up: by the time it could, your handler has already
+done all the work the 304 exists to avoid.
+
+- The tag is sent as the `ETag` either way, quoted if you did not quote it.
+- A `true` return means the client's `If-None-Match` named this version, compared the weak way
+  RFC 9110 requires. It is permission to skip the work, not an obligation — a body written anyway is
+  refused, and the client still gets a correct 304.
+- Only `GET` and `HEAD` are answered this way. On a write, `If-None-Match` asks a different question
+  that govalin does not answer for you.
+- To apply one validator to a group of routes, return it from a `Before` handler:
+  `app.Before("/api/*", func(call *govalin.Call) bool { return !call.NotModified(version()) })`.
+
+Static mounts do this for themselves, with no configuration. A file served from disk is validated by
+when it changed and how big it is; an embedded file, which has no modification time to offer, is
+validated by a hash of its content, computed once per file. Both are strong tags, so resumable
+downloads stay resumable.
+
 ## Testing your app
 
 Govalin ships a test harness, [`govalintest`](govalintest/), for testing your application over real HTTP. Hand it your own app — built by your own constructor, with your config, plugins and routes — and it starts it on an OS-assigned port, waits for it to be ready, and shuts it down when the test finishes:
