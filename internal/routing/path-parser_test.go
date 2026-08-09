@@ -42,11 +42,15 @@ func TestEndingRouteWildcardMatch(t *testing.T) {
 	assert.Equal(t, false, pathMatcher.MatchesURL("/govalintest"), "Should not match on subpartial match")
 }
 
-func TestWithEndingSlashdMatch(t *testing.T) {
+// TestOptionalTrailingSlashMatch pins both spellings of the path as the route's.
+// Which of them is canonical is the handler's to decide, not the matcher's.
+func TestOptionalTrailingSlashMatch(t *testing.T) {
 	pathMatcher, err := routing.NewPathMatcherFromString("/govalin/")
 	assert.Nil(t, err)
-	assert.Equal(t, false, pathMatcher.MatchesURL("/govalin"), "Should not match on root request")
+	assert.Equal(t, true, pathMatcher.MatchesURL("/govalin"), "Should match without the optional trailing slash")
 	assert.Equal(t, true, pathMatcher.MatchesURL("/govalin/"), "Should match on exact")
+	assert.Equal(t, false, pathMatcher.MatchesURL("/govalin//"), "Should not match a doubled slash")
+	assert.Equal(t, false, pathMatcher.MatchesURL("/govalin/sub"), "Should not match below the path")
 }
 
 func TestNestedWildcardMatch(t *testing.T) {
