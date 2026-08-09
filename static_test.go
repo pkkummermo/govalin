@@ -390,6 +390,57 @@ func TestStaticRedirectsAFileAskedForAsADirectory(t *testing.T) {
 	})
 }
 
+// TestStaticRedirectsTheMountRootToItsCanonicalURL covers the one URL the file
+// server underneath cannot canonicalize: at the mount root the mount path is the
+// whole URL, so stripping it leaves an empty path, which net/http rewrites to
+// '/' and serves. Only the router still knows the mount path was a prefix, so
+// the redirect that keeps the slashless spelling from being a second URL for the
+// mount root is govalin's to answer.
+func TestStaticRedirectsTheMountRootToItsCanonicalURL(t *testing.T) {
+	staticRoot, _ := fs.Sub(staticTestFiles, "internal/testdata/static")
+
+	app := newTestApp()
+	app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(staticRoot)
+	})
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+	app.Static("/spa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(staticRoot).EnableSPAMode(true)
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		client.HTTP().CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+
+		for _, mount := range []string{"/fs", "/static", "/spa"} {
+			response := client.GetResponse(mount + "?page=2")
+			assert.Equal(
+				t,
+				http.StatusMovedPermanently,
+				response.StatusCode,
+				"The slashless mount root of %s should redirect rather than serve",
+				mount,
+			)
+
+			location, locationErr := response.Location()
+			assert.Nil(t, locationErr, "The redirect from %s should carry a location", mount)
+			assert.Equal(t, mount+"/", location.Path, "It should point at the canonical mount root of %s", mount)
+			assert.Equal(t, "page=2", location.RawQuery, "A framework redirect keeps the query it was asked with")
+
+			assert.Contains(
+				t,
+				client.Get(mount+"/"),
+				"Hello world",
+				"The canonical mount root of %s is the one that serves",
+				mount,
+			)
+		}
+	})
+}
+
 // TestStaticSPAModeResolvesDirectories covers where the unreachable directory
 // was worst: SPA mode answered the shell with a 200, so a URL that named a real
 // directory failed to resolve without anything saying so. What a SPA mount must

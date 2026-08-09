@@ -158,6 +158,22 @@ func (config *StaticConfig) handle(call *Call) {
 	// remove host path
 	mountPath := strings.TrimPrefix(call.URL().Path, config.hostPath)
 
+	// The mount root is a directory, so its canonical URL is the trailing-slash
+	// form like any other. Only here is the mount path the whole URL, which is
+	// why the file server cannot answer this one: it is handed the URL with the
+	// mount stripped off, leaving it nothing to redirect from. The query is
+	// carried across verbatim, since it addresses the resource, not its spelling.
+	if mountPath == "" {
+		canonicalURL := config.hostPath + "/"
+		if rawQuery := call.URL().RawQuery; rawQuery != "" {
+			canonicalURL += "?" + rawQuery
+		}
+
+		call.Redirect(canonicalURL, true)
+
+		return
+	}
+
 	hostedFileSystem := config.fsContent
 
 	if !isFS {
