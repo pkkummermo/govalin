@@ -28,10 +28,7 @@ func newResponseWriter(writer http.ResponseWriter) *responseWriter {
 // still forwarded, so net/http keeps reporting a genuine double write; the
 // framework's own status flush is guarded by the committed flag instead.
 func (writer *responseWriter) WriteHeader(status int) {
-	// 1xx responses are informational: net/http may send several and the real
-	// status still follows, so they do not commit the response. 101 is the
-	// exception net/http itself makes — nothing follows a protocol switch, so it
-	// is a final status.
+	// 1xx is informational and the real status still follows; 101 is net/http's own exception.
 	if !writer.committed && (status >= http.StatusOK || status == http.StatusSwitchingProtocols) {
 		writer.status = status
 		writer.committed = true
