@@ -8,7 +8,6 @@ import (
 
 type pathSegment struct {
 	PathPiece    string
-	Regex        string
 	GroupedRegex string
 	PathNames    []string
 }
@@ -21,13 +20,11 @@ var (
 	wildcardPathSegment = pathSegment{
 		PathPiece:    "*",
 		PathNames:    []string{},
-		Regex:        ".+?",
 		GroupedRegex: ".+?",
 	}
 	rootPathSegment = pathSegment{
 		PathPiece:    "/",
 		PathNames:    []string{},
-		Regex:        "/",
 		GroupedRegex: "/",
 	}
 )
@@ -64,7 +61,6 @@ func createNormalPathSegment(pathPiece string) pathSegment {
 	return pathSegment{
 		PathPiece:    pathPiece,
 		PathNames:    []string{},
-		Regex:        regexp.QuoteMeta(pathPiece),
 		GroupedRegex: regexp.QuoteMeta(pathPiece),
 	}
 }
@@ -73,7 +69,6 @@ func createParameterPathSegment(pathPiece string) pathSegment {
 	return pathSegment{
 		PathPiece:    pathPiece,
 		PathNames:    []string{strings.Trim(strings.Trim(pathPiece, delimiterStart), delimiterEnd)},
-		Regex:        "[^/]+?",
 		GroupedRegex: "([^/]+?)",
 	}
 }

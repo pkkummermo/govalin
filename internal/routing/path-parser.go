@@ -11,31 +11,22 @@ import (
 )
 
 type PathMatcher struct {
-	path           string
-	segments       []pathSegment
 	pathParamNames []string
 	regexp         regexp.Regexp
-	matchRegexp    regexp.Regexp
 }
 
 func NewPathMatcherFromString(path string) (PathMatcher, error) {
 	if path == "/" {
 		return PathMatcher{
-			path:           path,
 			pathParamNames: []string{},
-			segments:       []pathSegment{rootPathSegment},
 			regexp:         *regexp.MustCompile("^/$"),
-			matchRegexp:    *regexp.MustCompile("^/$"),
 		}, nil
 	}
 
 	if path == "*" {
 		return PathMatcher{
-			path:           path,
 			pathParamNames: []string{},
-			segments:       []pathSegment{wildcardPathSegment},
 			regexp:         *regexp.MustCompile(".*?"),
-			matchRegexp:    *regexp.MustCompile(".*?"),
 		}, nil
 	}
 
@@ -52,10 +43,8 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 	}
 
 	groupRegexpParts := []string{}
-	regexpParts := []string{}
 
 	for _, ps := range pathSegments {
-		regexpParts = append(regexpParts, ps.Regex)
 		groupRegexpParts = append(groupRegexpParts, ps.GroupedRegex)
 	}
 
@@ -69,14 +58,10 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 	}
 
 	fullGroupedRegexpString := "^/" + strings.Join(groupRegexpParts, "/") + optionalTrailingSlash + "$"
-	fullRegexpString := "^/" + strings.Join(regexpParts, "/") + optionalTrailingSlash + "$"
 
 	return PathMatcher{
-		path:           path,
 		pathParamNames: pathParamNames,
-		segments:       pathSegments,
 		regexp:         *regexp.MustCompile(fullGroupedRegexpString),
-		matchRegexp:    *regexp.MustCompile(fullRegexpString),
 	}, nil
 }
 
