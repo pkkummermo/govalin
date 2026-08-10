@@ -1,9 +1,8 @@
 package logging
 
 import (
-	"os"
-
 	"log/slog"
+	"os"
 
 	"github.com/pkkummermo/govalin"
 )

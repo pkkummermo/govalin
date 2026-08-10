@@ -2,10 +2,9 @@ package routing
 
 import (
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
-
-	"log/slog"
 )
 
 type PathMatcher struct {
@@ -35,12 +34,11 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 	}
 
 	pathSegments, err := getPathSegments(path)
-
 	if err != nil {
 		return PathMatcher{}, err
 	}
 
-	var pathParamNames = []string{}
+	pathParamNames := []string{}
 	for _, ps := range pathSegments {
 		pathParamNames = append(pathParamNames, ps.PathNames...)
 	}

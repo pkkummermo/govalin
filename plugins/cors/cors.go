@@ -1,11 +1,10 @@
 package cors
 
 import (
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
-
-	"log/slog"
 
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/internal/http/headers"

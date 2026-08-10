@@ -19,7 +19,8 @@ func GetUnmarshalError(err *json.UnmarshalTypeError) *Error {
 			http.StatusBadRequest,
 			NewParameterErrorDetail(
 				lowerFirst(err.Struct)+"."+err.Field,
-				fmt.Sprintf("Incorrect type. '%s' is not of type '%s'",
+				fmt.Sprintf(
+					"Incorrect type. '%s' is not of type '%s'",
 					err.Value,
 					expectedType,
 				),

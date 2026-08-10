@@ -25,7 +25,6 @@ func (config *Config) Name() string {
 
 func (config *Config) OnInit(conf *govalin.Config) {
 	initiatedStore, err := NewSqliteSessionStore(config.connectionString, config.useWAL)
-
 	if err != nil {
 		slog.Error("Failed to initiate the SQLite session store")
 		os.Exit(1)
