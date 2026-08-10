@@ -122,7 +122,10 @@ func (config *StaticConfig) serveFile(call *Call, hostedFileSystem fs.FS, name s
 		return statErr
 	}
 
-	if config.cacheFor > 0 {
+	switch {
+	case config.spaMode && path.Base(name) == indexFileName:
+		call.NoCache()
+	case config.cacheFor > 0:
 		call.CacheFor(config.cacheFor)
 	}
 
@@ -280,9 +283,9 @@ func (config *StaticConfig) WithFS(fsContent fs.FS) *StaticConfig {
 // what stops a client revalidating every asset on every page load. A mount
 // declares nothing until asked, and only a positive duration asks.
 //
-// It covers every file the mount serves, index.html and the SPA fallback
-// included, so a bundle whose shell must reach clients on the next deploy wants
-// a short one.
+// It covers every file the mount serves, index.html included — except on a SPA
+// mount, whose shell is always checked before it is reused, whatever lifetime
+// the assets it names are given.
 func (config *StaticConfig) CacheFor(duration time.Duration) *StaticConfig {
 	config.cacheFor = duration
 
@@ -293,6 +296,10 @@ func (config *StaticConfig) CacheFor(duration time.Duration) *StaticConfig {
 //
 // SPA mode will serve the index.html file for all requests that doesn't match
 // a static file.
+//
+// That shell is served with no freshness of its own, whatever CacheFor declares
+// for the mount: it names the bundles a deploy replaces, so a client reusing an
+// old copy asks for assets that are no longer there.
 func (config *StaticConfig) EnableSPAMode(spaMode bool) *StaticConfig {
 	config.spaMode = spaMode
 

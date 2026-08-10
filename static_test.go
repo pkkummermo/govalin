@@ -362,6 +362,91 @@ func TestStaticCacheForAppliesToEveryFileTheMountServes(t *testing.T) {
 	})
 }
 
+// TestStaticSPAShellIsNeverFresh covers the one file a SPA mount must not
+// promise anything about. The shell names the hashed bundles, so a client
+// holding an old one asks for assets a deploy has already replaced — and it is
+// served at every URL the app routes, so a stale copy is the whole app.
+func TestStaticSPAShellIsNeverFresh(t *testing.T) {
+	bundle := fstest.MapFS{
+		"index.html":      &fstest.MapFile{Data: []byte("shell")},
+		"assets/app.js":   &fstest.MapFile{Data: []byte("bundled")},
+		"docs/index.html": &fstest.MapFile{Data: []byte("docs shell")},
+	}
+
+	app := newTestApp()
+	app.Static("/spa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(bundle).EnableSPAMode(true).CacheFor(time.Hour)
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		shellURLs := []string{"/spa/index.html", "/spa/", "/spa/some/client/route", "/spa/docs/"}
+		for _, shellURL := range shellURLs {
+			assert.Equal(
+				t,
+				"no-cache",
+				client.GetResponse(shellURL).Header.Get("Cache-Control"),
+				"The shell served at %s should be checked on every use",
+				shellURL,
+			)
+		}
+
+		asset := client.GetResponse("/spa/assets/app.js")
+		assert.Equal(
+			t,
+			"max-age=3600",
+			asset.Header.Get("Cache-Control"),
+			"What the shell points at is what the mount's lifetime is for",
+		)
+	})
+}
+
+// TestStaticSPAShellRevalidatesCheaply is what makes a shell that is never
+// fresh affordable: the client keeps its copy and is told to keep it, so
+// checking costs headers rather than the bundle.
+func TestStaticSPAShellRevalidatesCheaply(t *testing.T) {
+	bundle := fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("shell")}}
+
+	app := newTestApp()
+	app.Static("/spa", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(bundle).EnableSPAMode(true)
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		served := client.GetResponse("/spa/")
+
+		assert.Equal(
+			t,
+			"no-cache",
+			served.Header.Get("Cache-Control"),
+			"A SPA mount that declared no lifetime should still keep its shell out of a heuristic",
+		)
+
+		revalidated := revalidate(t, client, http.MethodGet, "/spa/", served.Header.Get("ETag"))
+		assert.Equal(t, http.StatusNotModified, revalidated.StatusCode, "Checking should be answered with a 304")
+		assert.Empty(t, readBody(t, revalidated), "A 304 should carry no shell")
+	})
+}
+
+// TestStaticIndexKeepsTheMountLifetimeWithoutSPAMode pins the scope of that
+// exception. Outside SPA mode a mount has no shell — index.html is a file like
+// any other, and a mount that quietly meant "every file except one" would be
+// harder to reason about than one that means what it says.
+func TestStaticIndexKeepsTheMountLifetimeWithoutSPAMode(t *testing.T) {
+	app := newTestApp()
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static").CacheFor(time.Hour)
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		assert.Equal(
+			t,
+			"max-age=3600",
+			client.GetResponse("/static/index.html").Header.Get("Cache-Control"),
+			"A plain mount serves index.html under the lifetime it declared",
+		)
+	})
+}
+
 // TestStaticLeavesTheFileServerItsWork pins the other half of that split: a
 // directory with no index.html is still the file server's to list, and a
 // directory reached without its trailing slash is still its to redirect.

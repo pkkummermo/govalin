@@ -372,6 +372,11 @@ routing that assumes upstream path cleanup
   an advisory validator costs a client nothing to ignore, a lifetime binds it until the clock runs out
 - A 304 carries the **Freshness** of the response it stands in for, so a **Revalidation
   short-circuit** renews the stored copy rather than leaving the client asking on every reuse
+- A **SPA fallback** is the one response govalin gives a **Freshness** of its own without being
+  asked, and it is the absence of one: the shell names the fingerprinted assets, so **Freshness** on
+  a SPA mount is for what the shell points at and never for the shell
+- A shell that is never fresh is affordable because its **Derived validator** is: never stale costs a
+  304, not a bundle
 - An **Implied HEAD** is what lets a static mount answer a cache probe: the **Derived validator** and
   the length are already on the response its GET handler produces
 - An **Implied HEAD** is logged as the HEAD it is; that a GET handler answered it is routing, not

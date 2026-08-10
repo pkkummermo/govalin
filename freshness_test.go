@@ -75,6 +75,30 @@ func TestCachePrivateForKeepsAResponseOutOfSharedCaches(t *testing.T) {
 	})
 }
 
+// TestNoCacheKeepsTheStoredCopyButAsksAnyway covers the shape an entry point
+// needs: the client keeps the response, and finds out it is still current with
+// a 304 rather than a download.
+func TestNoCacheKeepsTheStoredCopyButAsksAnyway(t *testing.T) {
+	app := newTestApp()
+	app.Get("/index", func(call *govalin.Call) {
+		call.NoCache()
+
+		if call.NotModified("v3") {
+			return
+		}
+
+		call.HTML("the shell")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.GetResponse("/index")
+		assert.Equal(t, "no-cache", response.Header.Get("Cache-Control"), "Should have the client ask every time")
+
+		revalidated := revalidate(t, client, http.MethodGet, "/index", `"v3"`)
+		assert.Equal(t, http.StatusNotModified, revalidated.StatusCode, "Asking should cost headers, not a body")
+	})
+}
+
 func TestNoStoreForbidsStoringTheResponse(t *testing.T) {
 	app := newTestApp()
 	app.Get("/token", func(call *govalin.Call) {
