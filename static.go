@@ -150,11 +150,8 @@ func (config *StaticConfig) handle(call *Call) {
 
 	mountPath := strings.TrimPrefix(call.URL().Path, config.hostPath)
 
-	// The mount root is a directory, so its canonical URL is the trailing-slash
-	// form like any other. Only here is the mount path the whole URL, which is
-	// why the file server cannot answer this one: it is handed the URL with the
-	// mount stripped off, leaving it nothing to redirect from. The query is
-	// carried across verbatim, since it addresses the resource, not its spelling.
+	// The file server is handed the URL with the mount stripped off, so this is the one
+	// trailing-slash redirect it cannot make. The query addresses the resource, not its spelling.
 	if mountPath == "" {
 		canonicalURL := config.hostPath + "/"
 		if rawQuery := call.URL().RawQuery; rawQuery != "" {
@@ -197,8 +194,7 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 
 	var pathErr *fs.PathError
 
-	// A name the file system refuses is a missing file here: a '..' segment or an
-	// escaping symlink must not answer differently from a name that isn't there.
+	// A '..' segment or an escaping symlink must not answer differently from a missing file.
 	isNotFoundError := errors.Is(statErr, fs.ErrNotExist) || errors.As(statErr, &pathErr)
 
 	// A name that resolves to nothing is a client-side route on a SPA mount.
@@ -219,9 +215,8 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 		call.Error(statErr)
 		return
 	case fileInfo.IsDir() != namedAsDirectory:
-		// The URL's claim and the file system disagree, in either direction: the
-		// file server redirects to the spelling that addresses what is there, so
-		// that neither is served at both.
+		// The URL and the file system disagree, so the file server redirects to the
+		// spelling that addresses what is there, and neither is served at both.
 		config.serveWithFileServer(call, hostedFileSystem)
 
 		return
@@ -229,8 +224,7 @@ Are you sure it exists and is readable on the given path: '%s'`, config.staticPa
 		// A directory with an index.html is serving a file, so it goes through Call for a validator.
 		indexName := path.Join(name, indexFileName)
 		if _, indexErr := fs.Stat(hostedFileSystem, indexName); indexErr != nil {
-			// Except on a SPA mount, which answers everything that is not a file
-			// with the shell, so its bundle is nobody's to enumerate.
+			// Except on a SPA mount, whose bundle is nobody's to enumerate.
 			if config.spaMode {
 				config.serveIndex(call, hostedFileSystem)
 			} else {

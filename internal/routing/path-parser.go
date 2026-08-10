@@ -14,10 +14,8 @@ type PathMatcher struct {
 }
 
 func NewPathMatcherFromString(path string) (PathMatcher, error) {
-	// A path holding nothing but slashes is the root path, spelled oddly — a
-	// route fragment and a path that both carry one produce it. Normalizing it
-	// here is what makes the matcher match the path the warning says it became,
-	// rather than the spellings it was written as.
+	// A path of nothing but slashes is the root spelled oddly, and a route fragment
+	// joined to a path produces it. The matcher has to match what the warning says it became.
 	if strings.Trim(path, "/ ") == "" {
 		if path != "/" {
 			slog.Warn(fmt.Sprintf("The path '%s' was converted to /", path))
@@ -53,10 +51,8 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 		groupRegexpParts = append(groupRegexpParts, ps.GroupedRegex)
 	}
 
-	// A trailing slash on the pattern makes the URL's trailing slash optional. It
-	// is appended after the join rather than as a segment of its own, which would
-	// put a mandatory slash in front of the optional one and leave the pattern
-	// matching only the doubled form.
+	// Appended after the join, not as a segment: a segment carries a mandatory slash in
+	// front of the optional one, leaving the pattern matching only the doubled form.
 	optionalTrailingSlash := ""
 	if strings.HasSuffix(path, "/") {
 		optionalTrailingSlash = "/?"
