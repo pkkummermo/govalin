@@ -179,6 +179,25 @@ func TestVaryOnOriginWhenRequestCarriesNoOrigin(t *testing.T) {
 	})
 }
 
+// TestVaryOnOriginJoinsAHandlersOwnSelectingHeader covers the layering the
+// plugin sits in: the route below it negotiates on a header of its own, and
+// neither claim on the response may cost the other.
+func TestVaryOnOriginJoinsAHandlersOwnSelectingHeader(t *testing.T) {
+	app := govalin.New(func(config *govalin.Config) {
+		config.Plugin(cors.New().AllowAllOrigins())
+	}).Get("/govalin", func(call *govalin.Call) {
+		call.VaryOn(headers.AcceptLanguage)
+		call.Text("govalin")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.GetResponse("/govalin")
+		defer func() { _ = response.Body.Close() }()
+
+		assert.Equal(t, []string{"Origin, Accept-Language"}, response.Header.Values(headers.Vary))
+	})
+}
+
 func TestNoCorsHeadersWhenRequestCarriesNoOrigin(t *testing.T) {
 	app := govalin.New(func(config *govalin.Config) {
 		config.Plugin(cors.New().AllowAllOrigins())
