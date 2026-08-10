@@ -70,12 +70,16 @@ func (config *Config) checkConfiguration() {
 func (config *Config) handleCors(call *govalin.Call) bool {
 	origin := call.Header(headers.Origin)
 
-	if !util.ContainsSome(config.allowedOrigins, wildcard, origin) {
+	// Declared before the origin check: the response was selected from Origin either way (ADR 0011).
+	call.Header(headers.Vary, headers.Origin)
+
+	// A request with no Origin is not a CORS request; the wildcard would otherwise allow it and
+	// echo an empty origin back.
+	if origin == "" || !util.ContainsSome(config.allowedOrigins, wildcard, origin) {
 		return true
 	}
 
 	call.Header(headers.AccessControlAllowOrigin, origin)
-	call.Header(headers.Vary, headers.AccessControlAllowOrigin)
 
 	if util.ContainsSome(config.allowedHeaders, wildcard) {
 		call.Header(headers.AccessControlAllowHeaders, wildcard)
