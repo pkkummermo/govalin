@@ -1,5 +1,10 @@
 # Agent Guidelines
 
+## Formatting
+
+Go code is formatted with **gofumpt**, not gofmt — run `gofumpt -w` on the files you touch. It is
+enforced as a golangci-lint formatter, so gofmt-clean code can still fail lint.
+
 ## Code comments
 
 Govalin is a public library, so an **exported identifier carries a doc comment** — that is the API
