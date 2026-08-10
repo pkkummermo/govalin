@@ -293,6 +293,13 @@ a login is a scope decision and a lifetime decision, answered deliberately rathe
 each other.
 _Avoid_: `public` as a synonym for cacheable, a scope read off how long something stays fresh
 
+**Selecting header**:
+The request header a response was chosen from, which is what `Vary` names — and only a request header
+can be one. A response header put there names nothing a request carries, so the cache keys on the URL
+alone and a single stored copy answers everyone. Naming a header the answer does not depend on is the
+opposite mistake, and costs storage rather than correctness.
+_Avoid_: a response header in `Vary`, a `Vary` sent only on the responses that came out varying
+
 **Implied HEAD**:
 A HEAD answered by the route's GET handler, because HEAD is GET without a body. A handler registered
 for HEAD replaces it wherever it sits in the route table — that is how a route buys the right to skip
@@ -381,6 +388,10 @@ routing that assumes upstream path cleanup
   the length are already on the response its GET handler produces
 - An **Implied HEAD** is logged as the HEAD it is; that a GET handler answered it is routing, not
   something the client did
+- A **Selecting header** is what a cache keys on in addition to the URL, so it is declared by every
+  response the plugin reading it produced — including the one it declined to add CORS headers to
+- **Freshness** decides how long a missing **Selecting header** goes on answering the wrong request:
+  a stored response with a lifetime is reused rather than revalidated
 
 ## Example dialogue
 
@@ -394,3 +405,4 @@ routing that assumes upstream path cleanup
 - Existing HTTP->HTTPS plugin redirect currently uses only URL path and drops query parameters; resolved: query-preserving behavior applies framework-wide and this behavior must be aligned.
 - "ETag support" was used to mean both cache validation and optimistic concurrency control; resolved: this work is cache validation only, and a precondition on an unsafe method is a separate feature that would need its own name.
 - "caching" was used to mean both freshness and cache validation; resolved: they are the two halves of caching, and a request that never happens is the one freshness is for.
+- `Vary` was read as naming the headers a response carries; resolved: it names the request headers the response was selected from, and a response header there is a cache key of nothing.
