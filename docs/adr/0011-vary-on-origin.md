@@ -42,7 +42,8 @@ depend on splits a cache's storage per requested method-and-header combination a
   anything to do with CORS — the plugin's before handler runs on `*`. A shared cache stores a copy per
   origin, which is the true cost of a response header derived from a request header.
 - `call.Header` adds rather than sets, so a handler that declares its own `Vary` sends a second field
-  line rather than replacing this one. Both are read, per RFC 9110 §5.3.
+  line rather than replacing this one. Both are read, per RFC 9110 §5.3. (Superseded by ADR 0012: the
+  plugin declares through `VaryOn`, which merges the names into one list.)
 - Freshness (ADR 0010) is what makes the reuse window long enough to matter: a response with a
   declared lifetime is one a cache serves again rather than revalidates, so the response that gets
   handed to the wrong origin is handed over for the full lifetime.

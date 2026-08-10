@@ -392,6 +392,13 @@ routing that assumes upstream path cleanup
   response the plugin reading it produced — including the one it declined to add CORS headers to
 - **Freshness** decides how long a missing **Selecting header** goes on answering the wrong request:
   a stored response with a lifetime is reused rather than revalidated
+- A **Selecting header** accumulates where **Freshness** replaces: a lifetime is the last caller's
+  policy for the response, a selecting header is a fact about what was read to produce it, and each
+  layer holds one the layers around it cannot see
+- "Never reuse this" is a **Cache scope** and not a **Selecting header**, which is the mistake
+  `Vary: *` is
+- A private **Cache scope** lowers what a missing **Selecting header** costs without answering it:
+  one client's own cache selects between responses that client would be given anyway
 
 ## Example dialogue
 
@@ -406,3 +413,4 @@ routing that assumes upstream path cleanup
 - "ETag support" was used to mean both cache validation and optimistic concurrency control; resolved: this work is cache validation only, and a precondition on an unsafe method is a separate feature that would need its own name.
 - "caching" was used to mean both freshness and cache validation; resolved: they are the two halves of caching, and a request that never happens is the one freshness is for.
 - `Vary` was read as naming the headers a response carries; resolved: it names the request headers the response was selected from, and a response header there is a cache key of nothing.
+- Declaring a `Vary` was read as last-call-wins, the way a lifetime is; resolved: a lifetime is a policy one caller chooses for the response and a selecting header is a fact each layer knows a piece of, so declarations accumulate.

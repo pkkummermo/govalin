@@ -160,6 +160,33 @@ app.Static("/", func(_ *govalin.Call, config *govalin.StaticConfig) {
 })
 ```
 
+### Which stored response answers
+
+A validator and a lifetime both say whether a stored response may be reused. Neither says *which*
+one. If your response depends on something the client asked for, say so:
+
+```go
+call.VaryOn("Accept-Language")  // Vary: Accept-Language
+```
+
+Without it the response is stored under its URL alone, and a cache in between hands your Norwegian
+copy to the next reader who asked for English — for the whole lifetime you declared, since that is
+what keeps them from asking.
+
+- It adds rather than replaces, so a plugin varying on `Origin` and the handler below it varying on
+  `Accept-Language` both end up on the response. Declaring the same header twice declares it once.
+- Declare it before you answer a revalidation. A 304 carries it, but `NotModified` returning true is
+  where the handler stops — anything declared after that never reaches the response.
+- The CORS plugin does this for itself: every response from an app that installs it varies on
+  `Origin`, because that is the header the plugin read.
+- For a response no cache may reuse, `NoStore` says it. `Vary: *` reads as "varies on everything" and
+  means the same thing, less clearly.
+- Behind `CachePrivateFor` it matters less: a private cache holds one client's copies, so a session
+  cookie there selects between responses that client would get anyway. In a shared cache it is the
+  difference between one client's response and another's.
+
+Static mounts declare nothing, and need nothing: a mount serves one representation per URL.
+
 ## Testing your app
 
 Govalin ships a test harness, [`govalintest`](govalintest/), for testing your application over real HTTP. Hand it your own app — built by your own constructor, with your config, plugins and routes — and it starts it on an OS-assigned port, waits for it to be ready, and shuts it down when the test finishes:
