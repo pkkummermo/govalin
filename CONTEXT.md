@@ -277,6 +277,22 @@ to. The 304 is buffered the moment the match is found, so a handler that produce
 sends a correct empty 304 — it has wasted only its own work.
 _Avoid_: correctness that depends on the caller reading a return value, a body inside a 304
 
+**Freshness**:
+How long a client may reuse a response it has stored before it has to ask again, declared by the
+server as a lifetime and counted down by the client. The other half of caching from **Cache
+validation**: a **Validator** makes a revalidation cheap, only freshness makes it unnecessary.
+Binding, not advisory — a lifetime cannot be withdrawn from a cache the server never sees, which is
+why a static mount declares none until it is asked to.
+_Avoid_: "caching" as one undivided feature, freshness as a stronger validator, a framework-chosen
+default lifetime
+
+**Cache scope**:
+Which caches may store a response — any of them, only the client that asked (`private`), or none at
+all (`no-store`). A separate question from **Freshness**, which says only how long: a response behind
+a login is a scope decision and a lifetime decision, answered deliberately rather than inferred from
+each other.
+_Avoid_: `public` as a synonym for cacheable, a scope read off how long something stays fresh
+
 **Implied HEAD**:
 A HEAD answered by the route's GET handler, because HEAD is GET without a body. A handler registered
 for HEAD replaces it wherever it sits in the route table — that is how a route buys the right to skip
@@ -350,6 +366,12 @@ routing that assumes upstream path cleanup
 - A **Revalidation short-circuit** buffers 304 like any other **Buffered status**, so **Status flush** and **Committed response** govern it unchanged
 - A 304 carries no representation, so the **Status flush** drops the headers that describe one
 - A **Strong validator** is what keeps **Ranged content** resumable across a revalidation
+- **Freshness** and **Cache validation** are the two halves of one feature, not alternatives: the
+  first removes the request, the second answers it cheaply when it comes
+- A **Derived validator** is on by default and **Freshness** never is, and the asymmetry is the point:
+  an advisory validator costs a client nothing to ignore, a lifetime binds it until the clock runs out
+- A 304 carries the **Freshness** of the response it stands in for, so a **Revalidation
+  short-circuit** renews the stored copy rather than leaving the client asking on every reuse
 - An **Implied HEAD** is what lets a static mount answer a cache probe: the **Derived validator** and
   the length are already on the response its GET handler produces
 - An **Implied HEAD** is logged as the HEAD it is; that a GET handler answered it is routing, not
@@ -366,3 +388,4 @@ routing that assumes upstream path cleanup
 - CI currently runs default tests but does not run race tests; resolved: race-clean will be enforced in CI as a mandatory gate.
 - Existing HTTP->HTTPS plugin redirect currently uses only URL path and drops query parameters; resolved: query-preserving behavior applies framework-wide and this behavior must be aligned.
 - "ETag support" was used to mean both cache validation and optimistic concurrency control; resolved: this work is cache validation only, and a precondition on an unsafe method is a separate feature that would need its own name.
+- "caching" was used to mean both freshness and cache validation; resolved: they are the two halves of caching, and a request that never happens is the one freshness is for.
