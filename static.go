@@ -13,6 +13,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 )
 
 // StaticConfig contains configuration for a static handler.
@@ -21,6 +22,7 @@ type StaticConfig struct {
 	spaMode    bool
 	staticPath string
 	fsContent  fs.FS
+	cacheFor   time.Duration
 	validators *sync.Map
 }
 
@@ -30,6 +32,7 @@ func newStaticConfig(validators *sync.Map) *StaticConfig {
 		spaMode:    false,
 		staticPath: "static",
 		fsContent:  nil,
+		cacheFor:   0,
 		validators: validators,
 	}
 }
@@ -117,6 +120,10 @@ func (config *StaticConfig) serveFile(call *Call, hostedFileSystem fs.FS, name s
 	fileInfo, statErr := file.Stat()
 	if statErr != nil {
 		return statErr
+	}
+
+	if config.cacheFor > 0 {
+		call.CacheFor(config.cacheFor)
 	}
 
 	// Both sinks revalidate the same way; http.ServeContent covers only the seekable one.
@@ -265,6 +272,19 @@ func (config *StaticConfig) WithStaticPath(staticPath string) *StaticConfig {
 // WithFS sets the bundled FS to serve static files from.
 func (config *StaticConfig) WithFS(fsContent fs.FS) *StaticConfig {
 	config.fsContent = fsContent
+
+	return config
+}
+
+// CacheFor declares how long the files this mount serves stay fresh, which is
+// what stops a client revalidating every asset on every page load. A mount
+// declares nothing until asked, and only a positive duration asks.
+//
+// It covers every file the mount serves, index.html and the SPA fallback
+// included, so a bundle whose shell must reach clients on the next deploy wants
+// a short one.
+func (config *StaticConfig) CacheFor(duration time.Duration) *StaticConfig {
+	config.cacheFor = duration
 
 	return config
 }
