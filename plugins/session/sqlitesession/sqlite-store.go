@@ -72,7 +72,6 @@ func (s *sqliteSessionStore) init() error {
 	defer s.mutex.Unlock()
 
 	initiatedStatements, err := internal.InitStatements(s.db)
-
 	if err != nil {
 		return err
 	}
@@ -84,7 +83,6 @@ func (s *sqliteSessionStore) init() error {
 
 func (s *sqliteSessionStore) CreateSession(expires int64) (string, error) {
 	sessionID, err := session.CreateNewSessionID(s)
-
 	if err != nil {
 		return "", err
 	}

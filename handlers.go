@@ -23,7 +23,6 @@ type pathHandler struct {
 
 func newPathHandlerFromPathFragment(pathFragment string) (pathHandler, error) {
 	pathMatcher, err := routing.NewPathMatcherFromString(pathFragment)
-
 	if err != nil {
 		return pathHandler{}, fmt.Errorf(
 			"failed to create path matcher for pathFragment '%s'. Err: %w", pathFragment, err,

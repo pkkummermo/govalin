@@ -42,16 +42,20 @@ type ServerEvents struct {
 	onRouteAdded     []OnRouteAdded
 }
 
-type OnServerStartup func()
-type OnServerShutdown func()
-type OnRouteAdded func(method string, path string, handler HandlerFunc)
+type (
+	OnServerStartup  func()
+	OnServerShutdown func()
+	OnRouteAdded     func(method string, path string, handler HandlerFunc)
+)
 
 func (events *ServerEvents) AddOnServerStartup(event OnServerStartup) {
 	events.onServerStartup = append(events.onServerStartup, event)
 }
+
 func (events *ServerEvents) AddOnServerShutdown(event OnServerShutdown) {
 	events.onServerShutdown = append(events.onServerShutdown, event)
 }
+
 func (events *ServerEvents) AddOnRouteAdded(event OnRouteAdded) {
 	events.onRouteAdded = append(events.onRouteAdded, event)
 }
@@ -120,7 +124,7 @@ func (config *Config) EnableSessions(confFunc ...SessionConfigFunc) *Config {
 		sessionStore:      session.NewInMemoryStore(),
 	}
 
-	if (len(confFunc)) > 0 {
+	if len(confFunc) > 0 {
 		confFunc[0](&configuredSession)
 	}
 

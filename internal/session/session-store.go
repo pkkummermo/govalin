@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
-
 	"log/slog"
 
 	"github.com/pkkummermo/govalin/internal/util"

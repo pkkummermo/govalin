@@ -47,7 +47,8 @@ func (config *StaticConfig) serveIndex(call *Call, hostedFileSystem fs.FS) {
 	failStatic(call, config.serveFile(call, hostedFileSystem, indexFileName), fmt.Sprintf(
 		`Failed to serve %s for the static mount on '%s'.
 This might be due to a misconfigured static path or embedded bundle, or simply
-that the %s file doesn't exist.`, indexFileName, config.hostPath, indexFileName))
+that the %s file doesn't exist.`, indexFileName, config.hostPath, indexFileName,
+	))
 }
 
 // failStatic answers a static file that could not be served. A response already

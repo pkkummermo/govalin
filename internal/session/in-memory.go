@@ -64,7 +64,6 @@ func (s *inMemoryStore) sessionPrune() error {
 // CreateSession creates a new session with the given expiration time and returns its ID.
 func (s *inMemoryStore) CreateSession(expires int64) (string, error) {
 	sessionID, err := CreateNewSessionID(s)
-
 	if err != nil {
 		return "", err
 	}
@@ -107,7 +106,7 @@ func (s *inMemoryStore) GetSessions(time int64) ([]Session, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	var sessions = make([]Session, 0)
+	sessions := make([]Session, 0)
 
 	for _, session := range s.store {
 		if session.Expires > time {

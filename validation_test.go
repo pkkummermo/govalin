@@ -225,7 +225,6 @@ func TestValidatedBody(t *testing.T) {
 			ValidateField("Email").Required().Email().Get().
 			ValidateField("Age").Min(18).Max(100).Get().
 			Get()
-
 		if err != nil {
 			call.Error(err)
 			return
@@ -416,7 +415,6 @@ func TestBodyValidatorCustom(t *testing.T) {
 			ValidateField("Name").Required().MinLength(2).Get().
 			ValidateField("Email").Required().Email().Get().
 			Get()
-
 		if err != nil {
 			call.Error(err)
 			return
@@ -470,7 +468,6 @@ func TestBodyValidatorWithTypedCustom(t *testing.T) {
 				return user.Age >= 13
 			}, "Must be at least 13 years old").
 			Get()
-
 		if err != nil {
 			call.Error(err)
 			return
@@ -529,7 +526,6 @@ func TestCurryableTypedCustomValidation(t *testing.T) {
 				return strings.Contains(u.Email, "@")
 			}, "Email must contain @ symbol").
 			Get()
-
 		if err != nil {
 			call.Error(err)
 			return
