@@ -70,7 +70,7 @@ func (config *Config) handleCors(call *govalin.Call) bool {
 	origin := call.Header(headers.Origin)
 
 	// Declared before the origin check: the response was selected from Origin either way (ADR 0011).
-	call.Header(headers.Vary, headers.Origin)
+	call.VaryOn(headers.Origin)
 
 	// A request with no Origin is not a CORS request; the wildcard would otherwise allow it and
 	// echo an empty origin back.
