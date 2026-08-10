@@ -388,10 +388,8 @@ func (server *App) matchHandlers(call *Call) {
 		return
 	}
 
-	// HEAD is GET without a body (RFC 9110 §9.3.2), so a path govalin has a GET
-	// for answers a HEAD with it — net/http drops the body the handler writes. A
-	// second pass rather than a fallback inside the lookup, so that a handler
-	// registered for HEAD wins wherever it sits in the route table.
+	// HEAD is GET without a body (RFC 9110 §9.3.2), and net/http drops the body a GET handler
+	// writes. A second pass, so a registered HEAD wins wherever it sits in the route table.
 	if call.Method() == http.MethodHead {
 		server.callHandlerByMethod(call, http.MethodGet)
 	}
