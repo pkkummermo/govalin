@@ -27,6 +27,13 @@ func (call *Call) CachePrivateFor(duration time.Duration) {
 	call.w.Header().Set(headers.CacheControl, "private, max-age="+maxAgeSeconds(duration))
 }
 
+// NoCache has the client keep the response but check before every reuse, which
+// is what an entry point naming versioned resources needs: never stale, and —
+// paired with a validator — answered by a 304 rather than a body.
+func (call *Call) NoCache() {
+	call.w.Header().Set(headers.CacheControl, "no-cache")
+}
+
 // NoStore forbids storing the response at all, for a body that must not outlive
 // the request that asked for it.
 func (call *Call) NoStore() {

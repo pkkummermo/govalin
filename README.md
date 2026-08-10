@@ -117,7 +117,8 @@ the client serves the response from its own cache and never asks.
 ```go
 call.CacheFor(10 * time.Minute)        // Cache-Control: max-age=600
 call.CachePrivateFor(1 * time.Minute)  // ...and only in the browser that asked for it
-call.NoStore()                         // ...and nowhere at all
+call.NoCache()                         // keep it, but check with me before every reuse
+call.NoStore()                         // don't keep it at all
 ```
 
 - `CacheFor` says how long, and nothing about who — a shared cache decides that for itself.
@@ -142,9 +143,22 @@ app.Static("/assets", func(_ *govalin.Call, config *govalin.StaticConfig) {
 })
 ```
 
-That is what turns an embedded bundle from one round trip per asset per page load into none. It
-covers every file the mount serves, `index.html` included, so a shell that has to reach clients on
-the next deploy wants a short one.
+That is what turns an embedded bundle from one round trip per asset per page load into none.
+
+On a mount in SPA mode the shell is the exception, and govalin makes it for you: `index.html` is
+served `no-cache` whatever the mount declares, at the mount root, at its own URL and at every
+client-side route it answers. The shell names the hashed bundles, so a client holding an old copy
+asks for assets the deploy has already replaced — and being served at every URL the app routes, a
+stale one is the whole app. Checking is cheap: the derived validator answers it with a 304.
+
+That is the split an asset pipeline is built around. Give the fingerprinted files a long lifetime,
+and let the one file that names them stay honest:
+
+```go
+app.Static("/", func(_ *govalin.Call, config *govalin.StaticConfig) {
+	config.WithFS(bundle).EnableSPAMode(true).CacheFor(24 * time.Hour)
+})
+```
 
 ## Testing your app
 
