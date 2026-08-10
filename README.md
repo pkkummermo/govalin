@@ -126,6 +126,10 @@ call.NoStore()                         // don't keep it at all
   that must not outlive the request.
 - Whichever you call last is the one that answers, so a lifetime declared for a group can be
   overridden by the single route that must not be stored.
+- A response that sets a cookie is the exception: it is narrowed to the client that asked for it,
+  whatever lifetime you declare. A session-minting response is `private`, and `CacheFor(time.Hour)`
+  on top of it comes out `private, max-age=3600` — the browser keeps its copy for the hour, and no
+  cache in between gets to hand your visitor's session to the next one.
 - Declare it where you know what you are answering. One declared up front — in a `Before` handler,
   say — lands on whatever that route ends up sending, and an explicit lifetime is exactly what makes
   a 404 or a 500 storable and reusable for its duration.
