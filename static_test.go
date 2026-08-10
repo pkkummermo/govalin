@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/govalintest"
@@ -276,6 +277,86 @@ func TestStaticDerivesValidatorsForDirectoryIndexes(t *testing.T) {
 				revalidated.StatusCode,
 				"Revalidating %s should be answered with a 304",
 				mountRoot,
+			)
+		}
+	})
+}
+
+// TestStaticSendsNoFreshnessByDefault pins the asymmetry between the two halves
+// of caching a static mount. A validator is advisory, so it is derived without
+// being asked; a lifetime is a promise the client holds the framework to, and
+// nothing govalin knows about a directory says how long its files stay current.
+func TestStaticSendsNoFreshnessByDefault(t *testing.T) {
+	staticRoot, _ := fs.Sub(staticTestFiles, "internal/testdata/static")
+
+	app := newTestApp()
+	app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(staticRoot)
+	})
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		for _, mount := range []string{"/fs", "/static"} {
+			served := client.GetResponse(mount + "/index.html")
+
+			assert.NotEmpty(t, served.Header.Get("ETag"), "A file on %s should still be validated", mount)
+			assert.Empty(
+				t,
+				served.Header.Get("Cache-Control"),
+				"A file on %s should promise no lifetime nobody asked for",
+				mount,
+			)
+		}
+	})
+}
+
+// TestStaticCacheForAppliesToEveryFileTheMountServes covers the one line that
+// turns a bundle from one round trip per asset per page load into none: the
+// mount's lifetime reaches the files below it, the index a directory serves,
+// and the 304 that renews a stored copy.
+func TestStaticCacheForAppliesToEveryFileTheMountServes(t *testing.T) {
+	staticRoot, _ := fs.Sub(staticTestFiles, "internal/testdata/static")
+
+	app := newTestApp()
+	app.Static("/fs", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithFS(staticRoot).CacheFor(time.Hour)
+	})
+	app.Static("/static", func(_ *govalin.Call, staticConfig *govalin.StaticConfig) {
+		staticConfig.WithStaticPath("internal/testdata/static").CacheFor(time.Hour)
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		for _, mount := range []string{"/fs", "/static"} {
+			for _, path := range []string{"/sub/test.html", "/"} {
+				served := client.GetResponse(mount + path)
+
+				assert.Equal(
+					t,
+					"max-age=3600",
+					served.Header.Get("Cache-Control"),
+					"%s%s should carry the lifetime its mount declared",
+					mount, path,
+				)
+			}
+
+			etag := client.GetResponse(mount + "/index.html").Header.Get("ETag")
+			revalidated := revalidate(t, client, http.MethodGet, mount+"/index.html", etag)
+
+			assert.Equal(
+				t,
+				http.StatusNotModified,
+				revalidated.StatusCode,
+				"A client on %s that comes back with the validator should get a 304",
+				mount,
+			)
+			assert.Equal(
+				t,
+				"max-age=3600",
+				revalidated.Header.Get("Cache-Control"),
+				"A 304 from %s should renew the lifetime of the stored copy",
+				mount,
 			)
 		}
 	})
