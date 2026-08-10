@@ -72,6 +72,8 @@ is logged at debug level.
 
 ## Caching
 
+### Validation
+
 `NotModified` answers a client that already has the resource, so a revalidation costs headers
 instead of a body:
 
@@ -106,6 +108,43 @@ Static mounts do this for themselves, with no configuration. A file served from 
 when it changed and how big it is; an embedded file, which has no modification time to offer, is
 validated by a hash of its content, computed once per file. Both are strong tags, so resumable
 downloads stay resumable.
+
+### Freshness
+
+A validator makes a revalidation cheap. What makes it unnecessary is a lifetime: until it runs out,
+the client serves the response from its own cache and never asks.
+
+```go
+call.CacheFor(10 * time.Minute)        // Cache-Control: max-age=600
+call.CachePrivateFor(1 * time.Minute)  // ...and only in the browser that asked for it
+call.NoStore()                         // ...and nowhere at all
+```
+
+- `CacheFor` says how long, and nothing about who — a shared cache decides that for itself.
+  `CachePrivateFor` is the shape a response behind a login needs, and `NoStore` the one for a body
+  that must not outlive the request.
+- Whichever you call last is the one that answers, so a lifetime declared for a group can be
+  overridden by the single route that must not be stored.
+- Declare it where you know what you are answering. One declared up front — in a `Before` handler,
+  say — lands on whatever that route ends up sending, and an explicit lifetime is exactly what makes
+  a 404 or a 500 storable and reusable for its duration.
+- A 304 carries the lifetime too: revalidating renews the stored copy instead of leaving the client
+  asking on every reuse.
+- No `Expires` is sent. Wherever both appear, `max-age` is the one every cache since HTTP/1.1 reads.
+
+Static mounts declare no lifetime unless you ask for one. A validator is advisory, but a lifetime is
+a promise — an asset served an hour out of date is not something to inherit from a framework — and
+nothing govalin knows about a directory says how long its files stay current. One line says it:
+
+```go
+app.Static("/assets", func(_ *govalin.Call, config *govalin.StaticConfig) {
+	config.WithFS(assets).CacheFor(time.Hour)
+})
+```
+
+That is what turns an embedded bundle from one round trip per asset per page load into none. It
+covers every file the mount serves, `index.html` included, so a shell that has to reach clients on
+the next deploy wants a short one.
 
 ## Testing your app
 
