@@ -438,10 +438,15 @@ func (call *Call) isSecure() bool {
 //
 // Get a Cookie based on given Cookie name request
 // or set a Cookie on the response by providing a value.
+//
+// Setting one narrows the response to the client that asked for it, keeping
+// whatever freshness is declared.
 func (call *Call) Cookie(name string, cookies ...*http.Cookie) (*http.Cookie, error) {
 	if len(cookies) > 0 {
 		cookies[0].Name = name
 		http.SetCookie(call.w, cookies[0])
+		call.cachePrivate()
+
 		return cookies[0], nil
 	}
 
@@ -574,11 +579,18 @@ func (call *Call) PathParams() map[string]string {
 //
 // Get a header value based on given header key from the request
 // or set header value on the response by providing a value.
+//
+// Setting Set-Cookie narrows the response the way Cookie does.
 func (call *Call) Header(key string, value ...string) string {
 	key = http.CanonicalHeaderKey(key)
 
 	if len(value) > 0 {
 		call.w.Header().Add(key, value[0])
+
+		if key == headers.SetCookie {
+			call.cachePrivate()
+		}
+
 		return value[0]
 	}
 

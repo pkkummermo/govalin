@@ -141,6 +141,112 @@ func TestFreshnessReplacesAnEarlierDeclaration(t *testing.T) {
 	})
 }
 
+// TestASessionMintingResponseIsPrivate covers the response govalin sets a
+// cookie on itself: a shared cache that stored it would hand the next visitor
+// the same session, so it declares a scope before any handler runs.
+func TestASessionMintingResponseIsPrivate(t *testing.T) {
+	app := newTestApp(func(config *govalin.Config) {
+		config.EnableSessions()
+	})
+	app.Get("/", func(call *govalin.Call) {
+		call.Text("welcome")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.GetResponse("/")
+
+		assert.NotEmpty(t, response.Header.Get("Set-Cookie"), "The first visit should mint a session")
+		assert.Equal(t, "private", response.Header.Get("Cache-Control"), "A minted session may not be shared")
+	})
+}
+
+// TestALifetimeNarrowsOnAResponseThatSetsACookie covers the case a scope alone
+// does not survive: a mount declaring a lifetime of its own, which last-call-wins
+// would otherwise let replace it.
+func TestALifetimeNarrowsOnAResponseThatSetsACookie(t *testing.T) {
+	app := newTestApp(func(config *govalin.Config) {
+		config.EnableSessions()
+	})
+	app.Get("/asset", func(call *govalin.Call) {
+		call.CacheFor(time.Hour)
+		call.Text("the asset")
+	})
+	app.Get("/shell", func(call *govalin.Call) {
+		call.NoCache()
+		call.HTML("the shell")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		lifetime := client.GetResponse("/asset")
+		assert.Equal(t, "private, max-age=3600", lifetime.Header.Get("Cache-Control"), "A lifetime should narrow")
+
+		shell := client.GetResponse("/shell")
+		assert.Equal(t, "private, no-cache", shell.Header.Get("Cache-Control"), "So should a revalidate-always")
+	})
+}
+
+// TestACookieSetAfterALifetimeNarrowsItToo covers the other order: the handler
+// declared how long its response lasts before it knew it would be setting a
+// cookie, and a shared cache would hold the response for everyone either way.
+func TestACookieSetAfterALifetimeNarrowsItToo(t *testing.T) {
+	app := newTestApp()
+	app.Get("/preferences", func(call *govalin.Call) {
+		call.CacheFor(time.Hour)
+
+		if _, err := call.Cookie("theme", &http.Cookie{Value: "dark", Path: "/"}); err != nil {
+			t.Errorf("failed to set the cookie: %v", err)
+		}
+
+		call.Text("saved")
+	})
+	app.Get("/preferences-by-header", func(call *govalin.Call) {
+		call.CacheFor(time.Hour)
+		call.Header("Set-Cookie", "theme=dark; Path=/")
+		call.Text("saved")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		for _, path := range []string{"/preferences", "/preferences-by-header"} {
+			response := client.GetResponse(path)
+
+			assert.Equal(
+				t,
+				"private, max-age=3600",
+				response.Header.Get("Cache-Control"),
+				"Neither the order nor the way the cookie was set should decide who holds %s", path,
+			)
+		}
+	})
+}
+
+// TestALifetimeStaysSharedForAClientThatHasASession covers what the narrowing is
+// keyed on: the response setting a cookie, not the app having sessions. A client
+// that already has one is served the shared lifetime the route asked for.
+func TestALifetimeStaysSharedForAClientThatHasASession(t *testing.T) {
+	app := newTestApp(func(config *govalin.Config) {
+		config.EnableSessions()
+	})
+	app.Get("/asset", func(call *govalin.Call) {
+		call.CacheFor(time.Hour)
+		call.Text("the asset")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		minted := client.GetResponse("/asset")
+
+		request, err := http.NewRequest(http.MethodGet, client.Host+"/asset", nil)
+		if err != nil {
+			t.Fatalf("failed to build a request: %v", err)
+		}
+		request.Header.Set("Cookie", minted.Header.Get("Set-Cookie"))
+
+		returning := client.Do(request)
+
+		assert.Empty(t, returning.Header.Get("Set-Cookie"), "A client with a session should not be minted another")
+		assert.Equal(t, "max-age=3600", returning.Header.Get("Cache-Control"), "Nothing here is one client's own")
+	})
+}
+
 // TestFreshnessSurvivesARevalidation covers what a 304 is for once freshness is
 // declared: the client stored the response, came back when it went stale, and
 // the answer has to renew the lifetime or it revalidates on every request from
