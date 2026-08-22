@@ -30,13 +30,13 @@ var allocationBudgets = []allocationBudget{
 	{
 		name:    "text",
 		target:  "/text",
-		allowed: 12,
+		allowed: 11,
 		build:   func(app *App) { app.Get("/text", func(call *Call) { call.Text("Hello world") }) },
 	},
 	{
 		name:    "json",
 		target:  "/json",
-		allowed: 13,
+		allowed: 12,
 		build: func(app *App) {
 			type payload struct {
 				Name  string `json:"name"`
@@ -49,13 +49,13 @@ var allocationBudgets = []allocationBudget{
 	{
 		name:    "status only",
 		target:  "/status",
-		allowed: 9,
+		allowed: 8,
 		build:   func(app *App) { app.Get("/status", func(call *Call) { call.Status(http.StatusNoContent) }) },
 	},
 	{
 		name:    "before and after handlers",
 		target:  "/text",
-		allowed: 16,
+		allowed: 15,
 		build: func(app *App) {
 			app.Before("/*", func(_ *Call) bool { return true })
 			app.Get("/text", func(call *Call) { call.Text("Hello world") })
@@ -65,13 +65,13 @@ var allocationBudgets = []allocationBudget{
 	{
 		name:    "not found",
 		target:  "/missing",
-		allowed: 35,
+		allowed: 34,
 		build:   func(app *App) { app.Get("/text", func(call *Call) { call.Text("Hello world") }) },
 	},
 	{
 		name:    "raw handler",
 		target:  "/raw",
-		allowed: 10,
+		allowed: 9,
 		build: func(app *App) {
 			app.HTTPServe("/raw", func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = w.Write([]byte("Hello world"))
@@ -81,7 +81,7 @@ var allocationBudgets = []allocationBudget{
 	{
 		name:    "static file",
 		target:  "/static/sub/test.html",
-		allowed: 43,
+		allowed: 42,
 		build: func(app *App) {
 			app.Static("/static", func(_ *Call, staticConfig *StaticConfig) {
 				staticConfig.WithStaticPath("internal/testdata/static")

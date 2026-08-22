@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/pkkummermo/govalin/internal/http/charsets"
 	"github.com/pkkummermo/govalin/internal/http/contenttypes"
 	"github.com/pkkummermo/govalin/internal/http/headers"
@@ -56,7 +55,7 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 
 	var uniqueID string
 	if govalinIDHeader == nil {
-		uniqueID = uuid.New().String()
+		uniqueID = newCallID()
 	} else {
 		uniqueID = govalinIDHeader[0]
 	}
