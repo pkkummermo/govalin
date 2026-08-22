@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkkummermo/govalin/internal/http/headers"
 	"github.com/pkkummermo/govalin/internal/validation"
 )
 
@@ -433,9 +434,11 @@ func (server *App) matchAfterHandlers(call *Call) {
 	}
 }
 
+var serverHeader = []string{"govalin"}
+
 func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	incomingRequestTime := time.Now()
-	w.Header().Add("Server", "govalin")
+	w.Header()[headers.Server] = serverHeader
 
 	call := newCallFromRequest(
 		w,
