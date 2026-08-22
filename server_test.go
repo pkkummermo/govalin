@@ -344,6 +344,40 @@ func TestBefore(t *testing.T) {
 	})
 }
 
+// TestLifecycleHandlersRunInRouteTableOrder pins which order overlapping before
+// and after handlers run in when one of them is registered on a path an earlier
+// route already put in the table: the table's order, not the order the Before
+// and After calls were made in.
+func TestLifecycleHandlersRunInRouteTableOrder(t *testing.T) {
+	app := newTestApp()
+	app.Get("/test", func(call *govalin.Call) {
+		call.Text(" handler")
+	})
+	app.Before("/*", func(call *govalin.Call) bool {
+		call.Text(" wildcard-before")
+		return true
+	})
+	app.Before("/test", func(call *govalin.Call) bool {
+		call.Text("test-before")
+		return true
+	})
+	app.After("/*", func(call *govalin.Call) {
+		call.Text(" wildcard-after")
+	})
+	app.After("/test", func(call *govalin.Call) {
+		call.Text(" test-after")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		assert.Equal(
+			t,
+			"test-before wildcard-before handler test-after wildcard-after",
+			client.Get("/test"),
+			"Should run the handlers in the order their paths sit in the route table",
+		)
+	})
+}
+
 func TestAfter(t *testing.T) {
 	app := newTestApp()
 	app.Get("/test", func(call *govalin.Call) {

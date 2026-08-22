@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/pkkummermo/govalin/internal/http/headers"
@@ -30,6 +31,8 @@ type App struct {
 	server          http.Server
 	currentFragment string
 	pathHandlers    []*pathHandler
+	beforeHandlers  []*pathHandler
+	afterHandlers   []*pathHandler
 }
 
 // New creates a new Govalin App instance.
@@ -152,6 +155,12 @@ func (server *App) addMethod(method string, fullPath string, methodHandler Handl
 // short circuited.
 func (server *App) Before(path string, beforeFunc BeforeFunc) {
 	fullPath := server.currentFragment + path
+
+	if beforeFunc == nil {
+		slog.Error(fmt.Sprintf("Before on path %s is nil.", fullPath))
+		os.Exit(1)
+	}
+
 	handler := server.getOrCreatePathHandlerByPath(fullPath)
 
 	if handler.Before != nil {
@@ -160,6 +169,7 @@ func (server *App) Before(path string, beforeFunc BeforeFunc) {
 	}
 
 	handler.Before = beforeFunc
+	server.beforeHandlers = insertInRegistrationOrder(server.beforeHandlers, handler)
 }
 
 // Add an after handler to given path
@@ -168,6 +178,12 @@ func (server *App) Before(path string, beforeFunc BeforeFunc) {
 // the same request.
 func (server *App) After(path string, afterFunc AfterFunc) {
 	fullPath := server.currentFragment + path
+
+	if afterFunc == nil {
+		slog.Error(fmt.Sprintf("After on path %s is nil.", fullPath))
+		os.Exit(1)
+	}
+
 	handler := server.getOrCreatePathHandlerByPath(fullPath)
 
 	if handler.After != nil {
@@ -176,6 +192,7 @@ func (server *App) After(path string, afterFunc AfterFunc) {
 	}
 
 	handler.After = afterFunc
+	server.afterHandlers = insertInRegistrationOrder(server.afterHandlers, handler)
 }
 
 // Add a GET handler
@@ -347,9 +364,22 @@ func (server *App) getOrCreatePathHandlerByPath(path string) *pathHandler {
 		os.Exit(1)
 	}
 
+	newHandler.order = len(server.pathHandlers)
 	server.pathHandlers = append(server.pathHandlers, newHandler)
 
 	return newHandler
+}
+
+// insertInRegistrationOrder places a handler in a lifecycle list at the position
+// its path holds in the route table, which is not where it was appended: Before
+// and After can be registered on a path some earlier route already created.
+func insertInRegistrationOrder(handlers []*pathHandler, handler *pathHandler) []*pathHandler {
+	position := len(handlers)
+	for position > 0 && handlers[position-1].order > handler.order {
+		position--
+	}
+
+	return slices.Insert(handlers, position, handler)
 }
 
 func (server *App) getPathHandlerByPath(path string) *pathHandler {
@@ -363,11 +393,11 @@ func (server *App) getPathHandlerByPath(path string) *pathHandler {
 }
 
 func (server *App) matchBeforeHandlers(call *Call) bool {
-	for _, pathHandler := range server.pathHandlers {
+	for _, pathHandler := range server.beforeHandlers {
 		if call.bypassLifecycle {
 			return false
 		}
-		if pathHandler.Before != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
+		if pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
 			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
 
 			if !pathHandler.Before(call) {
@@ -412,11 +442,11 @@ func (server *App) callHandlerByMethod(call *Call, method string) bool {
 }
 
 func (server *App) matchAfterHandlers(call *Call) {
-	for _, pathHandler := range server.pathHandlers {
+	for _, pathHandler := range server.afterHandlers {
 		if call.bypassLifecycle {
 			return
 		}
-		if pathHandler.After != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
+		if pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
 			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
 			pathHandler.After(call)
 		}
