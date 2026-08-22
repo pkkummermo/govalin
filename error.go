@@ -13,10 +13,7 @@ func (err *govalinError) Error() string {
 	return fmt.Sprintf("Error type %s", err.errorType)
 }
 
-const (
-	serverError govalinErrorType = "Server error"
-	userError   govalinErrorType = "User error"
-)
+const userError govalinErrorType = "User error"
 
 func newErrorFromType(errorType govalinErrorType, err error) error {
 	return &govalinError{
