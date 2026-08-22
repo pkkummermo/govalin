@@ -703,7 +703,7 @@ func (call *Call) BodyAs[T any](target *T) error {
 	}
 
 	if err := json.Unmarshal(bodyBytes, target); err != nil {
-		return newErrorFromType(userError, err)
+		return newUserError(err)
 	}
 
 	return nil
@@ -755,21 +755,21 @@ func (call *Call) SessionAttrOrDefault(key string, def any) any {
 
 // Handle an error
 //
-// Write a response based on given error. If the error is recognized as a
-// govalin error the error is handled specific according to the error.
+// Write a response based on given error. A user error answers 400 and, when the
+// cause is a JSON failure, a body naming it.
 func (call *Call) Error(err error) {
-	var govalinErr *govalinError
-	if errors.As(err, &govalinErr) {
+	var userErr *userError
+	if errors.As(err, &userErr) {
 		call.Status(http.StatusBadRequest)
 
 		var unmarshalErr *json.UnmarshalTypeError
-		if errors.As(govalinErr.originalError, &unmarshalErr) {
+		if errors.As(userErr.originalError, &unmarshalErr) {
 			call.JSON(validation.GetUnmarshalError(unmarshalErr).ErrorResponse)
 			return
 		}
 
 		var jsonSyntaxErr *json.SyntaxError
-		if errors.As(govalinErr.originalError, &jsonSyntaxErr) {
+		if errors.As(userErr.originalError, &jsonSyntaxErr) {
 			call.JSON(validation.NewError(
 				validation.NewErrorResponse(
 					http.StatusBadRequest,
@@ -779,11 +779,7 @@ func (call *Call) Error(err error) {
 			return
 		}
 
-		slog.Warn(
-			fmt.Sprintf(
-				"Unknown govalin error %v. Original err: %v. Error not handled", govalinErr, govalinErr.originalError,
-			),
-		)
+		slog.Warn(fmt.Sprintf("Unhandled %v", userErr))
 
 		return
 	}

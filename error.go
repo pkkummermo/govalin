@@ -2,22 +2,16 @@ package govalin
 
 import "fmt"
 
-type govalinErrorType string
-
-type govalinError struct {
-	errorType     govalinErrorType
+// userError is a failure the caller of the API caused, answered with 400 by
+// Call.Error.
+type userError struct {
 	originalError error
 }
 
-func (err *govalinError) Error() string {
-	return fmt.Sprintf("Error type %s", err.errorType)
+func (err *userError) Error() string {
+	return fmt.Sprintf("user error: %v", err.originalError)
 }
 
-const userError govalinErrorType = "User error"
-
-func newErrorFromType(errorType govalinErrorType, err error) error {
-	return &govalinError{
-		errorType:     errorType,
-		originalError: err,
-	}
+func newUserError(err error) error {
+	return &userError{originalError: err}
 }

@@ -81,7 +81,7 @@ func (message *WsMessage) AsText() string {
 // Returns an error on failed unmarshalling.
 func (message *WsMessage) As[T any](target *T) error {
 	if unmarshallErr := json.Unmarshal(message.data, target); unmarshallErr != nil {
-		return newErrorFromType(userError, unmarshallErr)
+		return newUserError(unmarshallErr)
 	}
 
 	return nil
