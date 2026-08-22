@@ -5,6 +5,7 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -639,4 +640,16 @@ func TestFormAfterBodyReadIsRejected(t *testing.T) {
 			"a drained body should report an error rather than a silently empty form",
 		)
 	})
+}
+
+// TestUninferableBodyTargetDoesNotCompile builds testdata/bodytarget, which passes
+// a body target by value and one behind an interface. The first answered every
+// request with a 500 under the reflection based check and the second unmarshalled
+// fine; both must now fail to compile.
+func TestUninferableBodyTargetDoesNotCompile(t *testing.T) {
+	output, err := exec.Command("go", "build", "./testdata/bodytarget").CombinedOutput()
+	assert.Error(t, err, "testdata/bodytarget must not compile: %s", output)
+
+	assert.Contains(t, string(output), "type user of u does not match *T")
+	assert.Contains(t, string(output), "in call to call.BodyAs, cannot infer T")
 }
