@@ -29,6 +29,14 @@ func (writer *discardWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
+// WriteString is what *http.response offers, so the double offers it too:
+// without it the benchmark measures a string copy no real server makes.
+func (writer *discardWriter) WriteString(data string) (int, error) {
+	writer.written += len(data)
+
+	return len(data), nil
+}
+
 func (writer *discardWriter) WriteHeader(status int) {
 	writer.status = status
 }

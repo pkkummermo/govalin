@@ -653,7 +653,19 @@ func (call *Call) Status(statusCode ...int) int {
 // forbids one is not worth reporting: a handler that produced a body after
 // NotModified matched wasted its own work, and the response is still correct.
 func (call *Call) writeBody(data []byte) {
-	if _, err := call.w.Write(data); err != nil && !errors.Is(err, http.ErrBodyNotAllowed) {
+	_, err := call.w.Write(data)
+	call.reportBodyError(err)
+}
+
+// writeBodyString writes a response body that is already a string, without the
+// copy a []byte conversion would make of it.
+func (call *Call) writeBodyString(text string) {
+	_, err := call.w.WriteString(text)
+	call.reportBodyError(err)
+}
+
+func (call *Call) reportBodyError(err error) {
+	if err != nil && !errors.Is(err, http.ErrBodyNotAllowed) {
 		slog.Error(fmt.Sprintf("Error when trying write to response, %v", err))
 	}
 }
@@ -665,7 +677,7 @@ func (call *Call) writeBody(data []byte) {
 func (call *Call) Text(text string) {
 	call.w.Header()[headers.ContentType] = contentTypeTextPlain
 	call.sendStatusOrDefault()
-	call.writeBody([]byte(text))
+	call.writeBodyString(text)
 }
 
 // Send text as HTML to response
@@ -675,7 +687,7 @@ func (call *Call) Text(text string) {
 func (call *Call) HTML(text string) {
 	call.w.Header()[headers.ContentType] = contentTypeTextHTML
 	call.sendStatusOrDefault()
-	call.writeBody([]byte(text))
+	call.writeBodyString(text)
 }
 
 // Send obj as JSON to response

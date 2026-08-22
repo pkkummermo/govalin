@@ -59,6 +59,12 @@ func TestResponseWriterTracksCommitment(t *testing.T) {
 			status:    http.StatusOK,
 		},
 		{
+			name:      "a WriteString commits an implicit 200",
+			act:       func(writer *responseWriter) { _, _ = writer.WriteString("body") },
+			committed: true,
+			status:    http.StatusOK,
+		},
+		{
 			name:      "a ReadFrom commits an implicit 200",
 			act:       func(writer *responseWriter) { _, _ = writer.ReadFrom(strings.NewReader("body")) },
 			committed: true,
@@ -97,5 +103,25 @@ func TestResponseWriterTracksCommitment(t *testing.T) {
 				t.Errorf("written status is %d, expected %d", writer.status, test.status)
 			}
 		})
+	}
+}
+
+// writeOnly hides the WriteString a recorder happens to have, leaving the plain
+// http.ResponseWriter that third-party middleware may hand the wrapper.
+type writeOnly struct {
+	http.ResponseWriter
+}
+
+// TestResponseWriterWritesStringsWithoutAStringWriter covers the wrapped writer
+// not taking strings: the body still has to reach it.
+func TestResponseWriterWritesStringsWithoutAStringWriter(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	writer := &responseWriter{ResponseWriter: writeOnly{recorder}}
+
+	if _, err := writer.WriteString("body"); err != nil {
+		t.Fatalf("WriteString returned %v", err)
+	}
+	if recorder.Body.String() != "body" {
+		t.Errorf("body is %q, expected %q", recorder.Body.String(), "body")
 	}
 }
