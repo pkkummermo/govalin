@@ -568,8 +568,14 @@ func (call *Call) PathParam(key string) string {
 // Get all path params as a map
 //
 // Returns a map populated with the values based on the
-// configuration of the path URL as a map[string]string.
+// configuration of the path URL as a map[string]string. A route with no path
+// parameters gets its empty map here, on the first call that asks, rather than
+// on every request.
 func (call *Call) PathParams() map[string]string {
+	if call.pathParams == nil {
+		call.pathParams = map[string]string{}
+	}
+
 	return call.pathParams
 }
 

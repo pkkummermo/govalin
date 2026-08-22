@@ -441,7 +441,7 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		w,
 		req,
 		server.config,
-		map[string]string{},
+		nil,
 	)
 
 	// Deferred so a bypassed or short-circuited request is logged like any other.
