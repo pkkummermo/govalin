@@ -9,7 +9,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strings"
 	"time"
 
@@ -695,20 +694,15 @@ func (call *Call) Redirect(url string, permanent ...bool) {
 
 // Get body as given struct
 //
-// BodyAs takes a pointer as input and tries to deserialize the body into the object
-// expecting the body to be JSON. Returns an error on failed unmarshalling or non-pointer.
-func (call *Call) BodyAs(obj any) error {
+// BodyAs deserializes the body into target, expecting the body to be JSON.
+// Returns an error on failed unmarshalling.
+func (call *Call) BodyAs[T any](target *T) error {
 	bodyBytes, err := call.readBody()
 	if err != nil {
 		return err
 	}
 
-	if reflect.ValueOf(obj).Type().Kind() != reflect.Pointer {
-		return newErrorFromType(serverError, fmt.Errorf("must provide a pointer to correctly unmarshal body"))
-	}
-
-	err = json.Unmarshal(bodyBytes, obj)
-	if err != nil {
+	if err := json.Unmarshal(bodyBytes, target); err != nil {
 		return newErrorFromType(userError, err)
 	}
 
