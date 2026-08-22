@@ -92,7 +92,14 @@ func (path *PathMatcher) MatchesURL(url string) bool {
 // PathParams extracts the path parameters from given string url according
 // to path configuration. Make sure that the path first matches the URL
 // before trying to extract the path parameters.
+//
+// A path that declares no parameters returns nil rather than an empty map, so
+// matching one costs neither a second pass over the URL nor an allocation.
 func (path *PathMatcher) PathParams(url string) map[string]string {
+	if len(path.pathParamNames) == 0 {
+		return nil
+	}
+
 	pathparamMap := map[string]string{}
 	pathParams := path.regexp.FindStringSubmatch(url)
 
