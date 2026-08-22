@@ -31,10 +31,14 @@ it, with the reason in the commit message. The failure message says so, because 
 
 Two scoping decisions:
 
-- The gate runs in a **dedicated job on the baseline toolchain**, mirroring the **Dedicated race gate
-  job** and **Selective race coverage**. Escape analysis and inlining change between Go releases, so
-  a compatibility-matrix job on a newer version could fail on a difference that is not a regression.
-  The counts are identical on Go 1.25 and 1.26 today; that is a measurement, not a guarantee.
+- The gate runs in a **dedicated job on the baseline toolchain and operating system**, mirroring the
+  **Dedicated race gate job** and **Selective race coverage**. Escape analysis and inlining change
+  between Go releases, so a compatibility-matrix job on a newer version could fail on a difference
+  that is not a regression. The platform matters for the same reason: the static file shape allocates
+  differently on darwin than on ubuntu, because the standard library takes a different path. The
+  budgets are therefore the counts measured on ubuntu, and "identical on every run" holds for a given
+  build on a given platform — a developer reproducing them elsewhere may legitimately see other
+  numbers.
 - It is **off by default** (`GOVALIN_PERF_GATE=1`), so a contributor running `go test ./...` on
   whatever Go version they have does not get a failure that means nothing.
 
@@ -62,6 +66,9 @@ and one that did compile would be measuring a file against a tree it was not wri
 - The budgets need a deliberate update when the framework legitimately allocates more, and when a Go
   release shifts them. The gate job reports the measured number alongside the budget, so the update
   is mechanical once the decision is made.
+- Budgets have to be read off the reference platform, not the machine the change was written on.
+  Setting them from a local darwin run lands numbers that fail in CI, which is how the per-OS
+  difference was found.
 - Benchmarks are compiled by the gate job, so one that stops building fails CI rather than rotting
   unnoticed.
 - The advisory comparison is silent when the merge base has no comparable benchmarks — including for
