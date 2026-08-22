@@ -20,10 +20,6 @@ type responseWriter struct {
 	committed bool
 }
 
-func newResponseWriter(writer http.ResponseWriter) *responseWriter {
-	return &responseWriter{ResponseWriter: writer}
-}
-
 // WriteHeader records the status and passes it on unchanged. A repeated call is
 // still forwarded, so net/http keeps reporting a genuine double write; the
 // framework's own status flush is guarded by the committed flag instead.

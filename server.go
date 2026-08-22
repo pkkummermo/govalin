@@ -450,7 +450,7 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	// Deferred so a bypassed or short-circuited request is logged like any other.
 	if server.config.server.accessLogEnabled {
 		defer func() {
-			server.logAccessLog(&call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
+			server.logAccessLog(call, float64(time.Since(incomingRequestTime))/float64(time.Millisecond))
 		}()
 	}
 
@@ -462,23 +462,23 @@ func (server *App) rootHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		}
 	}()
 
-	if !server.matchBeforeHandlers(&call) || call.bypassLifecycle {
+	if !server.matchBeforeHandlers(call) || call.bypassLifecycle {
 		return
 	}
 
-	server.matchHandlers(&call)
+	server.matchHandlers(call)
 	if call.bypassLifecycle {
 		return
 	}
 
-	server.matchAfterHandlers(&call)
+	server.matchAfterHandlers(call)
 	if call.bypassLifecycle {
 		return
 	}
 
 	// A handler that wrote without setting a status has handled it; a 404 body would corrupt it.
 	if call.Status() == 0 && !call.committed() {
-		server.notFoundHandler(&call)
+		server.notFoundHandler(call)
 	}
 }
 

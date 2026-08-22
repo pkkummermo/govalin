@@ -47,7 +47,8 @@ type Call struct {
 	config          *Config
 	status          int
 	bypassLifecycle bool
-	w               *responseWriter
+	w               responseWriter
+	rawWriter       http.ResponseWriter
 	req             *http.Request
 	pathParams      map[string]string
 	bodyBytes       []byte
@@ -58,7 +59,7 @@ type Call struct {
 	Raw             raw // Raw contains the raw request and response
 }
 
-func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config, pathParams map[string]string) Call {
+func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config, pathParams map[string]string) *Call {
 	govalinIDHeader := req.Header[headers.XGovalinID]
 
 	var uniqueID string
@@ -68,26 +69,23 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 		uniqueID = govalinIDHeader[0]
 	}
 
-	// Even Raw.W goes through the recording writer, so govalin sees a commit whoever made it.
-	recordingWriter := newResponseWriter(w)
-	var rawWriter http.ResponseWriter = recordingWriter
-
-	call := Call{
+	call := &Call{
 		id:              uniqueID,
 		config:          config,
-		w:               recordingWriter,
+		w:               responseWriter{ResponseWriter: w},
 		req:             req,
 		status:          0,
 		bypassLifecycle: false,
 		pathParams:      pathParams,
-		Raw: raw{
-			W:   &rawWriter,
-			Req: req,
-		},
 	}
 
+	// Even Raw.W goes through the recording writer, so govalin sees a commit whoever
+	// made it. Both point into the call itself, so a request is one allocation.
+	call.rawWriter = &call.w
+	call.Raw = raw{W: &call.rawWriter, Req: req}
+
 	if config.server.sessionsEnabled {
-		initiateSessionFromCall(&call)
+		initiateSessionFromCall(call)
 	}
 
 	return call
@@ -449,7 +447,7 @@ func (call *Call) isSecure() bool {
 func (call *Call) Cookie(name string, cookies ...*http.Cookie) (*http.Cookie, error) {
 	if len(cookies) > 0 {
 		cookies[0].Name = name
-		http.SetCookie(call.w, cookies[0])
+		http.SetCookie(&call.w, cookies[0])
 		call.cachePrivate()
 
 		return cookies[0], nil

@@ -86,7 +86,7 @@ func TestResponseWriterTracksCommitment(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			writer := newResponseWriter(httptest.NewRecorder())
+			writer := &responseWriter{ResponseWriter: httptest.NewRecorder()}
 
 			test.act(writer)
 
