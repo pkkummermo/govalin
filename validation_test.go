@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -214,51 +215,6 @@ func TestValidatedFormParam(t *testing.T) {
 	})
 }
 
-func TestValidatedBody(t *testing.T) {
-	app := newTestApp()
-	app.Post("/validate-body", func(call *govalin.Call) {
-		var user TestUser
-
-		err := call.ValidatedBody(&user).
-			ValidateField("Name").Required().MinLength(2).Get().
-			ValidateField("Email").Required().Email().Get().
-			ValidateField("Age").Min(18).Max(100).Get().
-			Get()
-		if err != nil {
-			call.Error(err)
-			return
-		}
-
-		call.JSON(map[string]interface{}{"message": "Valid user data", "user": user})
-	})
-
-	govalintest.Test(t, app, func(client *govalintest.Client) {
-		// Test valid user
-		validUser := TestUser{Name: "John Doe", Email: "john@example.com", Age: 25}
-		validUserJSON, _ := json.Marshal(validUser)
-		response := client.Post("/validate-body", string(validUserJSON))
-		assert.Contains(t, response, "Valid user data")
-
-		// Test invalid name (too short)
-		invalidUser := TestUser{Name: "J", Email: "john@example.com", Age: 25}
-		invalidUserJSON, _ := json.Marshal(invalidUser)
-		response = client.Post("/validate-body", string(invalidUserJSON))
-		assert.Contains(t, response, "Must be at least 2 characters long")
-
-		// Test invalid email
-		invalidUser = TestUser{Name: "John Doe", Email: "invalidemail", Age: 25}
-		invalidUserJSON, _ = json.Marshal(invalidUser)
-		response = client.Post("/validate-body", string(invalidUserJSON))
-		assert.Contains(t, response, "Must be a valid email address")
-
-		// Test invalid age
-		invalidUser = TestUser{Name: "John Doe", Email: "john@example.com", Age: 15}
-		invalidUserJSON, _ = json.Marshal(invalidUser)
-		response = client.Post("/validate-body", string(invalidUserJSON))
-		assert.Contains(t, response, "Must be at least 18")
-	})
-}
-
 func TestValidatedBodyWithPublicAPI(t *testing.T) {
 	app := newTestApp()
 	app.Post("/validate-body-custom", func(call *govalin.Call) {
@@ -407,8 +363,8 @@ func TestBodyValidatorCustom(t *testing.T) {
 			Custom(func(user TestUser) bool {
 				return user.Name != "InvalidUser" && user.Age >= 18
 			}, "User validation failed: invalid user or under 18").
-			ValidateField("Name").Required().MinLength(2).Get().
-			ValidateField("Email").Required().Email().Get().
+			StringField("name", func(u TestUser) string { return u.Name }).Required().MinLength(2).
+			StringField("email", func(u TestUser) string { return u.Email }).Required().Email().
 			Get()
 		if err != nil {
 			call.Error(err)
@@ -548,4 +504,141 @@ func TestCurryableCustomBodyValidation(t *testing.T) {
 		response = client.Post("/validate-curryable-typed", string(invalidUserJSON))
 		assert.Contains(t, response, "Email must contain @ symbol")
 	})
+}
+
+func TestValidatedBody(t *testing.T) {
+	app := newTestApp()
+	app.Post("/validate-body", func(call *govalin.Call) {
+		var user TestUser
+
+		err := call.ValidatedBody(&user).
+			StringField("name", func(u TestUser) string { return u.Name }).Required().MinLength(2).
+			StringField("email", func(u TestUser) string { return u.Email }).Required().Email().
+			IntField("age", func(u TestUser) int { return u.Age }).Min(18).Max(100).
+			Get()
+		if err != nil {
+			call.Error(err)
+			return
+		}
+
+		call.JSON(map[string]interface{}{"message": "Valid user data", "user": user})
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		validUser := TestUser{Name: "John Doe", Email: "john@example.com", Age: 25}
+		validUserJSON, _ := json.Marshal(validUser)
+		response := client.Post("/validate-body", string(validUserJSON))
+		assert.Contains(t, response, "Valid user data")
+
+		invalidUser := TestUser{Name: "J", Email: "john@example.com", Age: 25}
+		invalidUserJSON, _ := json.Marshal(invalidUser)
+		response = client.Post("/validate-body", string(invalidUserJSON))
+		assert.Contains(t, response, "Must be at least 2 characters long")
+		// The failure is reported under the JSON name the client sent, not the Go field name.
+		assert.Contains(t, response, `"name"`)
+		assert.NotContains(t, response, `"Name"`)
+
+		invalidUser = TestUser{Name: "John Doe", Email: "invalidemail", Age: 25}
+		invalidUserJSON, _ = json.Marshal(invalidUser)
+		response = client.Post("/validate-body", string(invalidUserJSON))
+		assert.Contains(t, response, "Must be a valid email address")
+
+		invalidUser = TestUser{Name: "John Doe", Email: "", Age: 25}
+		invalidUserJSON, _ = json.Marshal(invalidUser)
+		response = client.Post("/validate-body", string(invalidUserJSON))
+		assert.Contains(t, response, "This field is required")
+
+		invalidUser = TestUser{Name: "John Doe", Email: "john@example.com", Age: 15}
+		invalidUserJSON, _ = json.Marshal(invalidUser)
+		response = client.Post("/validate-body", string(invalidUserJSON))
+		assert.Contains(t, response, "Must be at least 18")
+
+		invalidUser = TestUser{Name: "John Doe", Email: "john@example.com", Age: 101}
+		invalidUserJSON, _ = json.Marshal(invalidUser)
+		response = client.Post("/validate-body", string(invalidUserJSON))
+		assert.Contains(t, response, "Must be at most 100")
+	})
+}
+
+// TestValidatedBodyFieldRuneLength verifies that MinLength/MaxLength on a body
+// field count runes rather than bytes, matching the query parameter validator.
+func TestValidatedBodyFieldRuneLength(t *testing.T) {
+	app := newTestApp()
+	app.Post("/validate-body-rune-min", func(call *govalin.Call) {
+		var user TestUser
+		if err := call.ValidatedBody(&user).
+			StringField("name", func(u TestUser) string { return u.Name }).MinLength(5).
+			Get(); err != nil {
+			call.Error(err)
+			return
+		}
+		call.JSON(map[string]string{"message": "Valid name"})
+	})
+
+	app.Post("/validate-body-rune-max", func(call *govalin.Call) {
+		var user TestUser
+		if err := call.ValidatedBody(&user).
+			StringField("name", func(u TestUser) string { return u.Name }).MaxLength(4).
+			Get(); err != nil {
+			call.Error(err)
+			return
+		}
+		call.JSON(map[string]string{"message": "Valid name"})
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		// "café" is 4 runes but 5 bytes, so a byte count would pass a minimum of 5.
+		body, _ := json.Marshal(TestUser{Name: "café"})
+		response := client.Post("/validate-body-rune-min", string(body))
+		assert.Contains(t, response, "Must be at least 5 characters long")
+
+		// The same 4 runes must satisfy a maximum of 4, which a byte count would reject.
+		response = client.Post("/validate-body-rune-max", string(body))
+		assert.Contains(t, response, "Valid name")
+	})
+}
+
+func TestValidatedBodyFieldCustomSeesWholeBody(t *testing.T) {
+	app := newTestApp()
+	app.Post("/validate-dependent-fields", func(call *govalin.Call) {
+		var user TestUser
+
+		err := call.ValidatedBody(&user).
+			StringField("email", func(u TestUser) string { return u.Email }).
+			Custom(func(u TestUser) bool {
+				return u.Age >= 21 || !strings.HasPrefix(u.Email, "admin@")
+			}, "An admin address requires age 21 or higher").
+			Get()
+		if err != nil {
+			call.Error(err)
+			return
+		}
+
+		call.JSON(map[string]string{"message": "Dependent validation passed"})
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		body, _ := json.Marshal(TestUser{Name: "Adult", Email: "admin@test.com", Age: 25})
+		response := client.Post("/validate-dependent-fields", string(body))
+		assert.Contains(t, response, "Dependent validation passed")
+
+		body, _ = json.Marshal(TestUser{Name: "Minor", Email: "admin@test.com", Age: 18})
+		response = client.Post("/validate-dependent-fields", string(body))
+		assert.Contains(t, response, "An admin address requires age 21 or higher")
+		// The dependent check reports under the field it was chained onto.
+		assert.Contains(t, response, `"email"`)
+	})
+}
+
+// TestTypedFieldRulesDoNotCompile builds testdata/typedfields, which applies a
+// string rule to an int field, passes an accessor of the wrong type and reads a
+// misspelled Go field. All three were request-time failures under the reflection
+// based validator and must stay compile errors.
+func TestTypedFieldRulesDoNotCompile(t *testing.T) {
+	output, err := exec.Command("go", "build", "./testdata/typedfields").CombinedOutput()
+	assert.Error(t, err, "testdata/typedfields must not compile: %s", output)
+
+	assert.Contains(t, string(output), "IntFieldValidator[user] has no field or method MinLength")
+	assert.Contains(t, string(output), "as func(user) string value in argument to")
+	assert.Contains(t, string(output), "u.Nmae undefined")
 }
