@@ -29,7 +29,7 @@ type App struct {
 	mux             *http.ServeMux
 	server          http.Server
 	currentFragment string
-	pathHandlers    []pathHandler
+	pathHandlers    []*pathHandler
 }
 
 // New creates a new Govalin App instance.
@@ -337,9 +337,10 @@ func (server *App) Shutdown() error {
 }
 
 func (server *App) getOrCreatePathHandlerByPath(path string) *pathHandler {
-	if existingPathHandler, pathNotFoundErr := server.getPathHandlerByPath(path); pathNotFoundErr == nil {
+	if existingPathHandler := server.getPathHandlerByPath(path); existingPathHandler != nil {
 		return existingPathHandler
 	}
+
 	newHandler, pathHandlerErr := newPathHandlerFromPathFragment(path)
 	if pathHandlerErr != nil {
 		slog.Error(fmt.Sprintf("Failed to create handler for path '%s'. Err: %v", path, pathHandlerErr))
@@ -347,30 +348,22 @@ func (server *App) getOrCreatePathHandlerByPath(path string) *pathHandler {
 	}
 
 	server.pathHandlers = append(server.pathHandlers, newHandler)
-	handler, err := server.getPathHandlerByPath(path)
-	if err != nil {
-		slog.Error(fmt.Sprintf("Failed to retrieve newly created handler for path '%s'. Err %v", path, err))
-		os.Exit(1)
-	}
-	return handler
+
+	return newHandler
 }
 
-func (server *App) getPathHandlerByPath(path string) (*pathHandler, error) {
-	for i := range server.pathHandlers {
-		if server.pathHandlers[i].PathFragment == path {
-			return &server.pathHandlers[i], nil
+func (server *App) getPathHandlerByPath(path string) *pathHandler {
+	for _, pathHandler := range server.pathHandlers {
+		if pathHandler.PathFragment == path {
+			return pathHandler
 		}
 	}
 
-	return &pathHandler{}, fmt.Errorf(
-		"no pathHandler found for given path %s", path,
-	)
+	return nil
 }
 
 func (server *App) matchBeforeHandlers(call *Call) bool {
-	for i := range server.pathHandlers {
-		pathHandler := &server.pathHandlers[i]
-
+	for _, pathHandler := range server.pathHandlers {
 		if call.bypassLifecycle {
 			return false
 		}
@@ -401,9 +394,7 @@ func (server *App) matchHandlers(call *Call) {
 // callHandlerByMethod runs the first registered handler for the method whose
 // path matches the request, and reports whether the request was handled.
 func (server *App) callHandlerByMethod(call *Call, method string) bool {
-	for i := range server.pathHandlers {
-		pathHandler := &server.pathHandlers[i]
-
+	for _, pathHandler := range server.pathHandlers {
 		if call.bypassLifecycle {
 			return true
 		}
@@ -421,9 +412,7 @@ func (server *App) callHandlerByMethod(call *Call, method string) bool {
 }
 
 func (server *App) matchAfterHandlers(call *Call) {
-	for i := range server.pathHandlers {
-		pathHandler := &server.pathHandlers[i]
-
+	for _, pathHandler := range server.pathHandlers {
 		if call.bypassLifecycle {
 			return
 		}
