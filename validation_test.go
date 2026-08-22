@@ -506,6 +506,39 @@ func TestCurryableCustomBodyValidation(t *testing.T) {
 	})
 }
 
+// TestValidatedFormParamReportsReadFailure verifies that a form that cannot be
+// read is reported as such, ahead of the rules chained on the value it never
+// produced.
+func TestValidatedFormParamReportsReadFailure(t *testing.T) {
+	app := newTestApp()
+	app.Post("/validate-form-unreadable", func(call *govalin.Call) {
+		if _, err := call.ValidatedFormParam("email").Required().Email().Get(); err != nil {
+			call.Error(err)
+			return
+		}
+		call.JSON(map[string]string{"message": "Valid email"})
+	})
+
+	app.Post("/validate-form-int-unreadable", func(call *govalin.Call) {
+		if _, err := call.ValidatedFormParamAsInt("age").Min(18).Get(); err != nil {
+			call.Error(err)
+			return
+		}
+		call.JSON(map[string]string{"message": "Valid age"})
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		// No form content type, so there is no form to read a parameter from.
+		response := client.Post("/validate-form-unreadable", "email=test@example.com")
+		assert.Contains(t, response, "Missing or invalid 'Content-Type' header")
+		assert.NotContains(t, response, "This field is required")
+
+		response = client.Post("/validate-form-int-unreadable", "age=20")
+		assert.Contains(t, response, "Missing or invalid 'Content-Type' header")
+		assert.NotContains(t, response, "Must be a valid integer")
+	})
+}
+
 func TestValidatedBody(t *testing.T) {
 	app := newTestApp()
 	app.Post("/validate-body", func(call *govalin.Call) {

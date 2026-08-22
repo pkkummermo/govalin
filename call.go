@@ -820,10 +820,8 @@ func (call *Call) Error(err error) {
 func (call *Call) ValidatedQueryParam(key string) *StringValidator {
 	value := call.QueryParam(key)
 	return &StringValidator{
-		call:  call,
 		key:   key,
 		value: value,
-		rules: make([]func(string, string) error, 0),
 	}
 }
 
@@ -831,36 +829,27 @@ func (call *Call) ValidatedQueryParam(key string) *StringValidator {
 func (call *Call) ValidatedPathParam(key string) *StringValidator {
 	value := call.PathParam(key)
 	return &StringValidator{
-		call:  call,
 		key:   key,
 		value: value,
-		rules: make([]func(string, string) error, 0),
 	}
 }
 
 // ValidatedFormParam returns a curryable string validator for form parameters.
 func (call *Call) ValidatedFormParam(key string) *StringValidator {
 	value, err := call.FormParam(key)
-	validator := &StringValidator{
-		call:  call,
+	return &StringValidator{
 		key:   key,
 		value: value,
-		rules: make([]func(string, string) error, 0),
+		err:   err,
 	}
-	if err != nil {
-		validator.rules = append(validator.rules, func(_, _ string) error { return err })
-	}
-	return validator
 }
 
 // ValidatedQueryParamAsInt returns a curryable integer validator for query parameters.
 func (call *Call) ValidatedQueryParamAsInt(key string) *IntValidator {
 	value := call.QueryParam(key)
 	return &IntValidator{
-		call:  call,
 		key:   key,
 		value: value,
-		rules: make([]func(int, string) error, 0),
 	}
 }
 
@@ -868,26 +857,19 @@ func (call *Call) ValidatedQueryParamAsInt(key string) *IntValidator {
 func (call *Call) ValidatedPathParamAsInt(key string) *IntValidator {
 	value := call.PathParam(key)
 	return &IntValidator{
-		call:  call,
 		key:   key,
 		value: value,
-		rules: make([]func(int, string) error, 0),
 	}
 }
 
 // ValidatedFormParamAsInt returns a curryable integer validator for form parameters.
 func (call *Call) ValidatedFormParamAsInt(key string) *IntValidator {
 	value, err := call.FormParam(key)
-	validator := &IntValidator{
-		call:  call,
+	return &IntValidator{
 		key:   key,
 		value: value,
-		rules: make([]func(int, string) error, 0),
+		err:   err,
 	}
-	if err != nil {
-		validator.rules = append(validator.rules, func(_ int, _ string) error { return err })
-	}
-	return validator
 }
 
 // ValidatedBody returns a curryable body validator that unmarshals the request
