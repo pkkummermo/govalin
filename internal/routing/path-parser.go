@@ -8,7 +8,7 @@ import (
 
 // PathMatcher matches request URLs against one compiled route path.
 type PathMatcher struct {
-	segments              []pathSegment
+	segments              []Segment
 	pathParamNames        []string
 	optionalTrailingSlash bool
 	matchesEverything     bool
@@ -38,8 +38,8 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 
 	pathParamNames := []string{}
 	for _, segment := range pathSegments {
-		if segment.kind == parameterSegment {
-			pathParamNames = append(pathParamNames, segment.text)
+		if segment.Kind == ParameterSegment {
+			pathParamNames = append(pathParamNames, segment.Text)
 		}
 	}
 
@@ -50,8 +50,8 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 	}, nil
 }
 
-func getPathSegments(path string) ([]pathSegment, error) {
-	pathSegments := []pathSegment{}
+func getPathSegments(path string) ([]Segment, error) {
+	pathSegments := []Segment{}
 	pathParts := strings.Split(path, "/")
 
 	for _, pathPiece := range pathParts {
@@ -102,6 +102,32 @@ func (path *PathMatcher) PathParams(url string) map[string]string {
 	return pathParamMap
 }
 
+// Segments returns the pieces the path compiled to, and whether the path is
+// nothing but those pieces. A caller that indexes routes by their segments can
+// key on the ones it gets; a path holding a wildcard, or one that matches every
+// URL, matches by a rule its segments do not carry and reports false.
+func (path *PathMatcher) Segments() ([]Segment, bool) {
+	if path.matchesEverything {
+		return nil, false
+	}
+
+	for _, segment := range path.segments {
+		if segment.Kind == WildcardSegment {
+			return nil, false
+		}
+	}
+
+	return path.segments, true
+}
+
+// OptionalTrailingSlash reports whether the path was registered with a trailing
+// slash, and so matches a URL spelled either way. A caller that decided a match
+// by the segments alone still has to ask: the slash is a rule about the end of
+// the path rather than a piece of it.
+func (path *PathMatcher) OptionalTrailingSlash() bool {
+	return path.optionalTrailingSlash
+}
+
 // match walks the URL across the compiled segments, appending the values it
 // captures to values. A nil values skips capture, so the routes a request does
 // not match cost nothing to rule out.
@@ -119,22 +145,22 @@ func (path *PathMatcher) match(url string, values []string) ([]string, bool) {
 
 // matchSegments matches segments against a URL positioned at the first
 // character of the first segment.
-func (path *PathMatcher) matchSegments(segments []pathSegment, url string, values []string) ([]string, bool) {
+func (path *PathMatcher) matchSegments(segments []Segment, url string, values []string) ([]string, bool) {
 	if len(segments) == 0 {
 		return values, url == "" || (path.optionalTrailingSlash && url == "/")
 	}
 
 	head, rest := segments[0], segments[1:]
 
-	switch head.kind {
-	case literalSegment:
-		if !strings.HasPrefix(url, head.text) {
+	switch head.Kind {
+	case LiteralSegment:
+		if !strings.HasPrefix(url, head.Text) {
 			return values, false
 		}
 
-		return path.matchSeparator(rest, url[len(head.text):], values)
+		return path.matchSeparator(rest, url[len(head.Text):], values)
 
-	case parameterSegment:
+	case ParameterSegment:
 		end := strings.IndexByte(url, '/')
 		if end < 0 {
 			end = len(url)
@@ -165,7 +191,7 @@ func (path *PathMatcher) matchSegments(segments []pathSegment, url string, value
 }
 
 // matchSeparator consumes the slash between two segments.
-func (path *PathMatcher) matchSeparator(segments []pathSegment, url string, values []string) ([]string, bool) {
+func (path *PathMatcher) matchSeparator(segments []Segment, url string, values []string) ([]string, bool) {
 	if len(segments) == 0 {
 		return path.matchSegments(segments, url, values)
 	}

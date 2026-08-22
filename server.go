@@ -31,6 +31,7 @@ type App struct {
 	server          http.Server
 	currentFragment string
 	pathHandlers    []*pathHandler
+	routes          routeIndex
 	beforeHandlers  []*pathHandler
 	afterHandlers   []*pathHandler
 }
@@ -366,6 +367,7 @@ func (server *App) getOrCreatePathHandlerByPath(path string) *pathHandler {
 
 	newHandler.order = len(server.pathHandlers)
 	server.pathHandlers = append(server.pathHandlers, newHandler)
+	server.routes.add(newHandler)
 
 	return newHandler
 }
@@ -424,21 +426,15 @@ func (server *App) matchHandlers(call *Call) {
 // callHandlerByMethod runs the first registered handler for the method whose
 // path matches the request, and reports whether the request was handled.
 func (server *App) callHandlerByMethod(call *Call, method string) bool {
-	for _, pathHandler := range server.pathHandlers {
-		if call.bypassLifecycle {
-			return true
-		}
-
-		handler := pathHandler.GetHandlerByMethod(method)
-		if handler != nil && pathHandler.PathMatcher.MatchesURL(call.URL().Path) {
-			call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
-			handler(call)
-
-			return true
-		}
+	pathHandler := server.routes.match(call.URL().Path, method)
+	if pathHandler == nil {
+		return false
 	}
 
-	return false
+	call.pathParams = pathHandler.PathMatcher.PathParams(call.URL().Path)
+	pathHandler.GetHandlerByMethod(method)(call)
+
+	return true
 }
 
 func (server *App) matchAfterHandlers(call *Call) {
