@@ -2,13 +2,23 @@ package routing
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 )
 
+type segmentKind uint8
+
+const (
+	literalSegment segmentKind = iota
+	parameterSegment
+	wildcardSegment
+)
+
+// pathSegment is one slash-separated piece of a compiled route path.
 type pathSegment struct {
-	GroupedRegex string
-	PathNames    []string
+	kind segmentKind
+	// text is the literal a literal segment matches, or the name a parameter
+	// segment captures under. A wildcard segment has neither.
+	text string
 }
 
 const (
@@ -18,21 +28,16 @@ const (
 	wildcard       = "*"
 )
 
-var wildcardPathSegment = pathSegment{
-	PathNames:    []string{},
-	GroupedRegex: ".+?",
-}
-
 // newPathSegment reads one slash-separated piece of a route path. A piece is a
 // wildcard, a literal, or a single '{name}' parameter that spans the whole
 // piece; anything else is a path the matcher has no meaning for.
 func newPathSegment(pathPiece string) (pathSegment, error) {
 	if pathPiece == wildcard {
-		return wildcardPathSegment, nil
+		return pathSegment{kind: wildcardSegment}, nil
 	}
 
 	if !strings.ContainsAny(pathPiece, delimiters) {
-		return createNormalPathSegment(pathPiece), nil
+		return pathSegment{kind: literalSegment, text: pathPiece}, nil
 	}
 
 	name, hasStart := strings.CutPrefix(pathPiece, delimiterStart)
@@ -44,19 +49,5 @@ func newPathSegment(pathPiece string) (pathSegment, error) {
 		)
 	}
 
-	return createParameterPathSegment(name), nil
-}
-
-func createNormalPathSegment(pathPiece string) pathSegment {
-	return pathSegment{
-		PathNames:    []string{},
-		GroupedRegex: regexp.QuoteMeta(pathPiece),
-	}
-}
-
-func createParameterPathSegment(name string) pathSegment {
-	return pathSegment{
-		PathNames:    []string{name},
-		GroupedRegex: "([^/]+?)",
-	}
+	return pathSegment{kind: parameterSegment, text: name}, nil
 }
