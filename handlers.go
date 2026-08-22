@@ -8,6 +8,7 @@ import (
 )
 
 type pathHandler struct {
+	order        int
 	PathFragment string
 	PathMatcher  routing.PathMatcher
 	Before       BeforeFunc
