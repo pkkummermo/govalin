@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkkummermo/govalin"
 	"github.com/pkkummermo/govalin/govalintest"
+	"github.com/pkkummermo/govalin/internal/http/contenttypes"
 	"github.com/pkkummermo/govalin/internal/http/headers"
 	"github.com/stretchr/testify/assert"
 )
@@ -652,4 +653,26 @@ func TestUninferableBodyTargetDoesNotCompile(t *testing.T) {
 
 	assert.Contains(t, string(output), "type user of u does not match *T")
 	assert.Contains(t, string(output), "in call to call.BodyAs, cannot infer T")
+}
+
+// TestBodyWriterReplacesAnExistingContentType covers a handler that set the
+// content type itself before writing: the response carries the one the body
+// writer chose, not both.
+func TestBodyWriterReplacesAnExistingContentType(t *testing.T) {
+	app := newTestApp()
+	app.Get("/greeting", func(call *govalin.Call) {
+		call.Header(headers.ContentType, contenttypes.ApplicationJSON)
+		call.Text("hei")
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		response := client.GetResponse("/greeting")
+
+		assert.Equal(
+			t,
+			[]string{contenttypes.TextPlain + "; charset=utf-8"},
+			response.Header.Values(headers.ContentType),
+			"Should send the content type of the body it actually wrote, and only that one",
+		)
+	})
 }

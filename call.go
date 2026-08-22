@@ -22,6 +22,15 @@ import (
 
 const sessionCookieName = "govalin-session"
 
+// The response Content-Type is one of a fixed set and "Content-Type" is already
+// the canonical form net/http would derive, so the header is assigned rather
+// than built per response.
+var (
+	contentTypeTextPlain = []string{contenttypes.TextPlain + "; charset=" + charsets.UTF8}
+	contentTypeTextHTML  = []string{contenttypes.TextHTML + "; charset=" + charsets.UTF8}
+	contentTypeJSON      = []string{contenttypes.ApplicationJSON + "; charset=" + charsets.UTF8}
+)
+
 type raw struct {
 	W   *http.ResponseWriter
 	Req *http.Request
@@ -45,7 +54,6 @@ type Call struct {
 	bodyErr         error
 	formParsed      bool
 	formErr         error
-	charset         string
 	session         session.Session
 	Raw             raw // Raw contains the raw request and response
 }
@@ -72,7 +80,6 @@ func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config
 		status:          0,
 		bypassLifecycle: false,
 		pathParams:      pathParams,
-		charset:         charsets.UTF8,
 		Raw: raw{
 			W:   &rawWriter,
 			Req: req,
@@ -652,7 +659,7 @@ func (call *Call) writeBody(data []byte) {
 // Text will set the content-type of the response as text/plain and write it to the response.
 // If no other status has been given the response, it will write a 200 OK to the response.
 func (call *Call) Text(text string) {
-	call.w.Header().Add(headers.ContentType, headers.ContentTypeHeader(contenttypes.TextPlain, call.charset))
+	call.w.Header()[headers.ContentType] = contentTypeTextPlain
 	call.sendStatusOrDefault()
 	call.writeBody([]byte(text))
 }
@@ -662,7 +669,7 @@ func (call *Call) Text(text string) {
 // HTML will set the content-type of the response as text/html and write it to the response.
 // If no other status has been given the response, it will write a 200 OK to the response.
 func (call *Call) HTML(text string) {
-	call.w.Header().Add(headers.ContentType, headers.ContentTypeHeader(contenttypes.TextHTML, call.charset))
+	call.w.Header()[headers.ContentType] = contentTypeTextHTML
 	call.sendStatusOrDefault()
 	call.writeBody([]byte(text))
 }
@@ -673,7 +680,7 @@ func (call *Call) HTML(text string) {
 // object as JSON, and writes it to the response. If no other status has been given the response,
 // it will write a 200 OK to the response.
 func (call *Call) JSON(obj interface{}) {
-	call.w.Header().Add(headers.ContentType, headers.ContentTypeHeader(contenttypes.ApplicationJSON, charsets.UTF8))
+	call.w.Header()[headers.ContentType] = contentTypeJSON
 	jsonBytes, err := json.Marshal(obj)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error when trying to JSON marshall object, %v", err))
