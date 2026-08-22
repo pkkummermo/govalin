@@ -56,3 +56,7 @@ passes the name the client used.
 - Only string and int fields have entry points, which is what the reflection path validated too.
   A `FloatField` is a few lines the day a caller needs one; anything else goes through `Custom`.
 - `reflect` is gone from `validation.go`.
+- Each rule is defined once, in `internal/validation`, and both the parameter validators and the body
+  field validators spend it. The predicates and messages had been written out three times, so the
+  reflection path counting bytes where the query parameter path counted runes was a divergence
+  waiting to happen rather than an oversight.

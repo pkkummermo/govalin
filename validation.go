@@ -1,29 +1,26 @@
 package govalin
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
-	"unicode/utf8"
 
 	"github.com/pkkummermo/govalin/internal/validation"
 )
 
 // StringValidator provides a curryable string validation interface.
 type StringValidator struct {
-	call  *Call
 	key   string
 	value string
-	rules []func(string, string) error
+	err   error
+	rules []validation.Rule[string]
 }
 
 // IntValidator provides a curryable integer validation interface.
 type IntValidator struct {
-	call  *Call
 	key   string
 	value string
-	rules []func(int, string) error
+	err   error
+	rules []validation.Rule[int]
 }
 
 // BodyValidator provides validation for request body.
@@ -55,76 +52,41 @@ type IntFieldValidator[T any] struct {
 
 // Required adds a required validation rule.
 func (v *StringValidator) Required() *StringValidator {
-	v.rules = append(v.rules, func(value, fieldName string) error {
-		if strings.TrimSpace(value) == "" {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, "This field is required"),
-			))
-		}
-		return nil
-	})
+	v.rules = append(v.rules, validation.Required())
 	return v
 }
 
-// MinLength adds a minimum length validation rule.
+// MinLength adds a minimum length validation rule, counted in runes.
 func (v *StringValidator) MinLength(minimum int) *StringValidator {
-	v.rules = append(v.rules, func(value, fieldName string) error {
-		if utf8.RuneCountInString(value) < minimum {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d characters long", minimum)),
-			))
-		}
-		return nil
-	})
+	v.rules = append(v.rules, validation.MinLength(minimum))
 	return v
 }
 
-// MaxLength adds a maximum length validation rule.
+// MaxLength adds a maximum length validation rule, counted in runes.
 func (v *StringValidator) MaxLength(maximum int) *StringValidator {
-	v.rules = append(v.rules, func(value, fieldName string) error {
-		if utf8.RuneCountInString(value) > maximum {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d characters long", maximum)),
-			))
-		}
-		return nil
-	})
+	v.rules = append(v.rules, validation.MaxLength(maximum))
 	return v
 }
 
-// Email adds an email validation rule.
+// Email adds an email validation rule. An empty value passes, so combine it with
+// Required to reject one.
 func (v *StringValidator) Email() *StringValidator {
-	v.rules = append(v.rules, func(value, fieldName string) error {
-		if value != "" && !strings.Contains(value, "@") {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, "Must be a valid email address"),
-			))
-		}
-		return nil
-	})
+	v.rules = append(v.rules, validation.Email())
 	return v
 }
 
 // Custom adds a custom validation rule for strings.
 func (v *StringValidator) Custom(fn func(string) bool, message string) *StringValidator {
-	v.rules = append(v.rules, func(value, fieldName string) error {
-		if !fn(value) {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, message),
-			))
-		}
-		return nil
-	})
+	v.rules = append(v.rules, validation.Custom(fn, message))
 	return v
 }
 
 // Get validates the string and returns it if valid.
 func (v *StringValidator) Get() (string, error) {
+	if v.err != nil {
+		return "", v.err
+	}
+
 	for _, rule := range v.rules {
 		if err := rule(v.value, v.key); err != nil {
 			return "", err
@@ -137,62 +99,34 @@ func (v *StringValidator) Get() (string, error) {
 
 // Min adds a minimum value validation rule for integers.
 func (v *IntValidator) Min(minimum int) *IntValidator {
-	v.rules = append(v.rules, func(value int, fieldName string) error {
-		if value < minimum {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at least %d", minimum)),
-			))
-		}
-		return nil
-	})
+	v.rules = append(v.rules, validation.Min(minimum))
 	return v
 }
 
 // Max adds a maximum value validation rule for integers.
 func (v *IntValidator) Max(maximum int) *IntValidator {
-	v.rules = append(v.rules, func(value int, fieldName string) error {
-		if value > maximum {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be at most %d", maximum)),
-			))
-		}
-		return nil
-	})
+	v.rules = append(v.rules, validation.Max(maximum))
 	return v
 }
 
 // Range adds a range validation rule for integers.
 func (v *IntValidator) Range(minimum, maximum int) *IntValidator {
-	v.rules = append(v.rules, func(value int, fieldName string) error {
-		if value < minimum || value > maximum {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, fmt.Sprintf("Must be between %d and %d", minimum, maximum)),
-			))
-		}
-		return nil
-	})
+	v.rules = append(v.rules, validation.Range(minimum, maximum))
 	return v
 }
 
 // Custom adds a custom validation rule for integers.
 func (v *IntValidator) Custom(fn func(int) bool, message string) *IntValidator {
-	v.rules = append(v.rules, func(value int, fieldName string) error {
-		if !fn(value) {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(fieldName, message),
-			))
-		}
-		return nil
-	})
+	v.rules = append(v.rules, validation.Custom(fn, message))
 	return v
 }
 
 // Get validates the integer and returns it if valid.
 func (v *IntValidator) Get() (int, error) {
+	if v.err != nil {
+		return 0, v.err
+	}
+
 	intVal, err := strconv.Atoi(v.value)
 	if err != nil {
 		return 0, validation.NewError(validation.NewErrorResponse(
@@ -214,15 +148,7 @@ func (v *IntValidator) Get() (int, error) {
 // Custom adds a custom validation rule for the entire body. The rule receives
 // the unmarshalled body and attributes a failure to "body".
 func (v *BodyValidator[T]) Custom(validatorFn func(T) bool, message string) *BodyValidator[T] {
-	v.rules = append(v.rules, func(data *T) error {
-		if !validatorFn(*data) {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail("body", message),
-			))
-		}
-		return nil
-	})
+	addBodyRule(v, "body", validation.Custom(validatorFn, message))
 	return v
 }
 
@@ -254,64 +180,46 @@ func (v *BodyValidator[T]) IntField(name string, accessor func(T) int) *IntField
 	return &IntFieldValidator[T]{BodyValidator: v, name: name, accessor: accessor}
 }
 
-func addFieldRule[T any](v *BodyValidator[T], name, message string, isValid func(T) bool) {
+func addBodyRule[T any](v *BodyValidator[T], name string, rule validation.Rule[T]) {
 	v.rules = append(v.rules, func(data *T) error {
-		if !isValid(*data) {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(name, message),
-			))
+		if err := rule(*data, name); err != nil {
+			return err
 		}
 		return nil
 	})
 }
 
-// Formatted where it is reported, not at chain build: a chain is built per request.
-func addFieldLimitRule[T any](v *BodyValidator[T], name, format string, limit int, isValid func(T) bool) {
-	v.rules = append(v.rules, func(data *T) error {
-		if !isValid(*data) {
-			return validation.NewError(validation.NewErrorResponse(
-				http.StatusBadRequest,
-				validation.NewParameterErrorDetail(name, fmt.Sprintf(format, limit)),
-			))
-		}
-		return nil
-	})
+// onField lifts a rule on a field's value to one on the whole body.
+func onField[T, V any](accessor func(T) V, rule validation.Rule[V]) validation.Rule[T] {
+	return func(body T, fieldName string) *validation.Error {
+		return rule(accessor(body), fieldName)
+	}
 }
 
 // String field validation rule methods
 
 // Required adds a required validation rule for the field.
 func (v *StringFieldValidator[T]) Required() *StringFieldValidator[T] {
-	addFieldRule(v.BodyValidator, v.name, "This field is required", func(body T) bool {
-		return strings.TrimSpace(v.accessor(body)) != ""
-	})
+	addBodyRule(v.BodyValidator, v.name, onField(v.accessor, validation.Required()))
 	return v
 }
 
 // MinLength adds a minimum length validation rule for the field, counted in runes.
 func (v *StringFieldValidator[T]) MinLength(minimum int) *StringFieldValidator[T] {
-	addFieldLimitRule(v.BodyValidator, v.name, "Must be at least %d characters long", minimum, func(body T) bool {
-		return utf8.RuneCountInString(v.accessor(body)) >= minimum
-	})
+	addBodyRule(v.BodyValidator, v.name, onField(v.accessor, validation.MinLength(minimum)))
 	return v
 }
 
 // MaxLength adds a maximum length validation rule for the field, counted in runes.
 func (v *StringFieldValidator[T]) MaxLength(maximum int) *StringFieldValidator[T] {
-	addFieldLimitRule(v.BodyValidator, v.name, "Must be at most %d characters long", maximum, func(body T) bool {
-		return utf8.RuneCountInString(v.accessor(body)) <= maximum
-	})
+	addBodyRule(v.BodyValidator, v.name, onField(v.accessor, validation.MaxLength(maximum)))
 	return v
 }
 
 // Email adds an email validation rule for the field. An empty field passes, so
 // combine it with Required to reject one.
 func (v *StringFieldValidator[T]) Email() *StringFieldValidator[T] {
-	addFieldRule(v.BodyValidator, v.name, "Must be a valid email address", func(body T) bool {
-		email := v.accessor(body)
-		return email == "" || strings.Contains(email, "@")
-	})
+	addBodyRule(v.BodyValidator, v.name, onField(v.accessor, validation.Email()))
 	return v
 }
 
@@ -319,7 +227,7 @@ func (v *StringFieldValidator[T]) Email() *StringFieldValidator[T] {
 // depend on other fields, and attributes a failure to this field. It shadows the
 // body-level Custom: one meant for the body must come before the first field.
 func (v *StringFieldValidator[T]) Custom(validatorFn func(T) bool, message string) *StringFieldValidator[T] {
-	addFieldRule(v.BodyValidator, v.name, message, validatorFn)
+	addBodyRule(v.BodyValidator, v.name, validation.Custom(validatorFn, message))
 	return v
 }
 
@@ -327,17 +235,13 @@ func (v *StringFieldValidator[T]) Custom(validatorFn func(T) bool, message strin
 
 // Min adds a minimum value validation rule for the field.
 func (v *IntFieldValidator[T]) Min(minimum int) *IntFieldValidator[T] {
-	addFieldLimitRule(v.BodyValidator, v.name, "Must be at least %d", minimum, func(body T) bool {
-		return v.accessor(body) >= minimum
-	})
+	addBodyRule(v.BodyValidator, v.name, onField(v.accessor, validation.Min(minimum)))
 	return v
 }
 
 // Max adds a maximum value validation rule for the field.
 func (v *IntFieldValidator[T]) Max(maximum int) *IntFieldValidator[T] {
-	addFieldLimitRule(v.BodyValidator, v.name, "Must be at most %d", maximum, func(body T) bool {
-		return v.accessor(body) <= maximum
-	})
+	addBodyRule(v.BodyValidator, v.name, onField(v.accessor, validation.Max(maximum)))
 	return v
 }
 
@@ -345,6 +249,6 @@ func (v *IntFieldValidator[T]) Max(maximum int) *IntFieldValidator[T] {
 // depend on other fields, and attributes a failure to this field. It shadows the
 // body-level Custom: one meant for the body must come before the first field.
 func (v *IntFieldValidator[T]) Custom(validatorFn func(T) bool, message string) *IntFieldValidator[T] {
-	addFieldRule(v.BodyValidator, v.name, message, validatorFn)
+	addBodyRule(v.BodyValidator, v.name, validation.Custom(validatorFn, message))
 	return v
 }
