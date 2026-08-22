@@ -1,6 +1,6 @@
 module github.com/pkkummermo/govalin
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/ddliu/go-httpclient v0.7.1

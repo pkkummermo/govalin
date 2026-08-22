@@ -36,7 +36,7 @@ var allocationBudgets = []allocationBudget{
 	{
 		name:    "json",
 		target:  "/json",
-		allowed: 15,
+		allowed: 16,
 		build: func(app *App) {
 			type payload struct {
 				Name  string `json:"name"`
@@ -65,7 +65,7 @@ var allocationBudgets = []allocationBudget{
 	{
 		name:    "not found",
 		target:  "/missing",
-		allowed: 36,
+		allowed: 38,
 		build:   func(app *App) { app.Get("/text", func(call *Call) { call.Text("Hello world") }) },
 	},
 	{
