@@ -31,7 +31,7 @@ var allocationBudgets = []allocationBudget{
 	{
 		name:    "text",
 		target:  "/text",
-		allowed: 2,
+		allowed: 1,
 		build:   func(app *App) { app.Get("/text", func(call *Call) { call.Text("Hello world") }) },
 	},
 	{
@@ -56,7 +56,7 @@ var allocationBudgets = []allocationBudget{
 	{
 		name:    "before and after handlers",
 		target:  "/text",
-		allowed: 2,
+		allowed: 1,
 		build: func(app *App) {
 			app.Before("/*", func(_ *Call) bool { return true })
 			app.Get("/text", func(call *Call) { call.Text("Hello world") })

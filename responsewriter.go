@@ -40,6 +40,19 @@ func (writer *responseWriter) Write(data []byte) (int, error) {
 	return writer.ResponseWriter.Write(data)
 }
 
+// WriteString keeps net/http's string path: *http.response implements
+// io.StringWriter, and without this a string body would be copied into a byte
+// slice of its own before every write.
+func (writer *responseWriter) WriteString(data string) (int, error) {
+	writer.markCommitted()
+
+	if stringWriter, ok := writer.ResponseWriter.(io.StringWriter); ok {
+		return stringWriter.WriteString(data)
+	}
+
+	return writer.ResponseWriter.Write([]byte(data))
+}
+
 // ReadFrom keeps net/http's sendfile path: io.Copy prefers an io.ReaderFrom, and
 // without this every streamed body would fall back to a buffered copy.
 func (writer *responseWriter) ReadFrom(reader io.Reader) (int64, error) {
