@@ -188,7 +188,7 @@ func (server *App) After(path string, afterFunc AfterFunc) {
 	handler := server.getOrCreatePathHandlerByPath(fullPath)
 
 	if handler.After != nil {
-		slog.Error(fmt.Sprintf("Before already exists on path %s.", fullPath))
+		slog.Error(fmt.Sprintf("After already exists on path %s.", fullPath))
 		os.Exit(1)
 	}
 
