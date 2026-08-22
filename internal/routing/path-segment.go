@@ -7,59 +7,56 @@ import (
 )
 
 type pathSegment struct {
-	PathPiece    string
 	GroupedRegex string
 	PathNames    []string
 }
 
-var (
+const (
 	delimiterStart = "{"
 	delimiterEnd   = "}"
+	delimiters     = delimiterStart + delimiterEnd
 	wildcard       = "*"
-
-	wildcardPathSegment = pathSegment{
-		PathPiece:    "*",
-		PathNames:    []string{},
-		GroupedRegex: ".+?",
-	}
 )
 
+var wildcardPathSegment = pathSegment{
+	PathNames:    []string{},
+	GroupedRegex: ".+?",
+}
+
+// newPathSegment reads one slash-separated piece of a route path. A piece is a
+// wildcard, a literal, or a single '{name}' parameter that spans the whole
+// piece; anything else is a path the matcher has no meaning for.
 func newPathSegment(pathPiece string) (pathSegment, error) {
-	delimiterStartCount := strings.Count(pathPiece, delimiterStart)
-	delimiterEndCount := strings.Count(pathPiece, delimiterEnd)
-	totalDelimiters := delimiterStartCount + delimiterEndCount
-
-	if delimiterStartCount != delimiterEndCount {
-		return pathSegment{}, fmt.Errorf("number of '%d' and '%d' is not the same", delimiterStartCount, delimiterEndCount)
-	}
-
 	if pathPiece == wildcard {
 		return wildcardPathSegment, nil
 	}
 
-	if totalDelimiters == 0 {
+	if !strings.ContainsAny(pathPiece, delimiters) {
 		return createNormalPathSegment(pathPiece), nil
 	}
 
-	if totalDelimiters == 2 && pathPiece[0:1] == delimiterStart && pathPiece[len(pathPiece)-1:] == delimiterEnd {
-		return createParameterPathSegment(pathPiece), nil
+	name, hasStart := strings.CutPrefix(pathPiece, delimiterStart)
+	name, hasEnd := strings.CutSuffix(name, delimiterEnd)
+
+	if !hasStart || !hasEnd || name == "" || strings.ContainsAny(name, delimiters) {
+		return pathSegment{}, fmt.Errorf(
+			"path segment '%s' is neither a literal nor a '{name}' parameter", pathPiece,
+		)
 	}
 
-	return pathSegment{}, nil
+	return createParameterPathSegment(name), nil
 }
 
 func createNormalPathSegment(pathPiece string) pathSegment {
 	return pathSegment{
-		PathPiece:    pathPiece,
 		PathNames:    []string{},
 		GroupedRegex: regexp.QuoteMeta(pathPiece),
 	}
 }
 
-func createParameterPathSegment(pathPiece string) pathSegment {
+func createParameterPathSegment(name string) pathSegment {
 	return pathSegment{
-		PathPiece:    pathPiece,
-		PathNames:    []string{strings.Trim(strings.Trim(pathPiece, delimiterStart), delimiterEnd)},
+		PathNames:    []string{name},
 		GroupedRegex: "([^/]+?)",
 	}
 }
