@@ -104,6 +104,18 @@ _Avoid_: erroring normalizer, validation-as-transform
 Rules and transforms apply in written order; a transform only affects checks placed after it in the chain.
 _Avoid_: implicit reordering, position-independent transforms
 
+**Field accessor**:
+A function from the body type to one field's value, such as `func(User) string`, naming the field a
+**Validation rule** applies to. It is what the compiler checks in place of a field-name string, so a
+misspelling, a rule of the wrong type, and a body without that field are all rejected before any
+request arrives.
+_Avoid_: field lookup by name at request time, a rule bound to a field by string
+
+**Reported field name**:
+The name a validation failure is attributed to, given by the caller rather than taken from the Go
+struct. It is the name the client used, so a body sent with `"name"` is answered about `"name"`.
+_Avoid_: a Go field name in a client-facing error, a name recovered from the type
+
 **Buffered status**:
 A status code set via `Status()` that is held on the call and not yet committed to the response writer.
 _Avoid_: eager status write, status sent immediately on set
@@ -346,6 +358,10 @@ routing that assumes upstream path cleanup
 - **Scope-locked PR1** constrains initial delivery to test-helper race fix and CI enforcement updates
 - A **Validation rule** asserts on an input without changing it; a **Transform step** changes the value and never fails
 - **Chain order significance** means a **Transform step** only reaches a **Validation rule** placed after it
+- A **Validation rule** on a body field is bound to it by a **Field accessor**, so the field is found
+  by the compiler and not by the request
+- A **Reported field name** is the caller's to give because a **Field accessor** cannot yield one, and
+  that is the fix: the name is the client's, not the struct's
 - A **Buffered status** becomes visible to the client only after a **Status flush**
 - A **Status flush** happens at most once per request: on first body write, or otherwise at end of lifecycle
 - **Lifecycle bypass** suppresses **Status flush** — the handler owns response finalization
