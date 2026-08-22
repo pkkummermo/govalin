@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -220,23 +219,4 @@ func (sv *StructValidator) Validate(data interface{}) *Error {
 	}
 
 	return nil
-}
-
-// Helper functions for common type conversions and validations
-
-// ValidateStringAsInt validates a string can be converted to int and applies int validation.
-func ValidateStringAsInt(value string, fieldName string, validator *Validator[int]) *Error {
-	if value == "" {
-		return nil // Let Required() handle empty strings
-	}
-
-	intVal, err := strconv.Atoi(value)
-	if err != nil {
-		return NewError(NewErrorResponse(
-			http.StatusBadRequest,
-			NewParameterErrorDetail(fieldName, "Must be a valid integer"),
-		))
-	}
-
-	return validator.Validate(intVal, fieldName)
 }
