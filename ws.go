@@ -3,10 +3,8 @@ package govalin
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
-	"reflect"
 
 	"github.com/gorilla/websocket"
 )
@@ -79,14 +77,10 @@ func (message *WsMessage) AsText() string {
 	return string(message.data)
 }
 
-// As unmarshals the message into the given jsonStruct.
-func (message *WsMessage) As(jsonStruct interface{}) error {
-	if reflect.ValueOf(jsonStruct).Type().Kind() != reflect.Pointer {
-		return newErrorFromType(serverError, fmt.Errorf("must provide a pointer to correctly unmarshal body"))
-	}
-
-	unmarshallErr := json.Unmarshal(message.data, jsonStruct)
-	if unmarshallErr != nil {
+// As unmarshals the message into target, expecting the message to be JSON.
+// Returns an error on failed unmarshalling.
+func (message *WsMessage) As[T any](target *T) error {
+	if unmarshallErr := json.Unmarshal(message.data, target); unmarshallErr != nil {
 		return newErrorFromType(userError, unmarshallErr)
 	}
 
