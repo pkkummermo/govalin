@@ -76,3 +76,25 @@ func TestNestedWildcardMatch(t *testing.T) {
 	assert.Equal(t, false, pathMatcher.MatchesURL("/baz/baz/foo"), "Should not match on mismatched wildcard")
 	assert.Equal(t, false, pathMatcher.MatchesURL("/foo/baz"), "Should not match on mismatched wildcard")
 }
+
+// A segment mixing literal text and a parameter used to silently compile to a
+// pattern matching nothing its author meant; now it fails at registration.
+func TestMalformedParameterSegmentIsRejected(t *testing.T) {
+	for _, path := range []string{"/a/{b}c", "/a/x{b}", "/a/{b}-{c}", "/a/{}", "/a/{{b}}", "/a/{b", "/a/b}"} {
+		_, err := routing.NewPathMatcherFromString(path)
+
+		assert.Error(t, err, "'%s' is not a path the matcher can express", path)
+	}
+}
+
+// TestParameterSegmentSpansTheWholePiece keeps the shapes either side of the
+// rejection above matching what they always did.
+func TestParameterSegmentSpansTheWholePiece(t *testing.T) {
+	pathMatcher, err := routing.NewPathMatcherFromString("/a/{b}")
+
+	assert.Nil(t, err)
+	assert.Equal(t, true, pathMatcher.MatchesURL("/a/foo"), "Should match a value in the parameter position")
+	assert.Equal(t, map[string]string{"b": "foo"}, pathMatcher.PathParams("/a/foo"), "Should capture the value")
+	assert.Equal(t, false, pathMatcher.MatchesURL("/a/"), "Should not match an empty parameter")
+	assert.Equal(t, false, pathMatcher.MatchesURL("/a/foo/bar"), "Should not span a separator")
+}
