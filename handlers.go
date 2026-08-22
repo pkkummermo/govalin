@@ -21,15 +21,15 @@ type pathHandler struct {
 	Options      HandlerFunc
 }
 
-func newPathHandlerFromPathFragment(pathFragment string) (pathHandler, error) {
+func newPathHandlerFromPathFragment(pathFragment string) (*pathHandler, error) {
 	pathMatcher, err := routing.NewPathMatcherFromString(pathFragment)
 	if err != nil {
-		return pathHandler{}, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to create path matcher for pathFragment '%s'. Err: %w", pathFragment, err,
 		)
 	}
 
-	return pathHandler{
+	return &pathHandler{
 		PathFragment: pathFragment,
 		PathMatcher:  pathMatcher,
 		Head:         nil,
