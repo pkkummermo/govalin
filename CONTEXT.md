@@ -340,6 +340,12 @@ segment. It is legal anywhere in a pattern, not only in the final position, so a
 gap in its middle.
 _Avoid_: a wildcard confined to one segment, a catch-all valid only as the last segment
 
+**Whole-piece parameter**:
+A `{name}` route segment names the whole piece between two slashes, never a part of one. A segment
+mixing literal text with a parameter — `{id}c`, `x{id}`, `{a}-{b}` — is not a pattern govalin can
+express, and a route carrying one fails at registration rather than matching nothing.
+_Avoid_: a parameter embedded in a segment, a segment holding two parameters, a partial-piece capture
+
 **Lifecycle breadth**:
 Before and After handlers run for *every* route whose pattern matches the URL, while the request is
 served by exactly one. Matching for the lifecycle is a collection; matching for the handler is a
@@ -455,3 +461,4 @@ _Avoid_: a before handler shadowed by an earlier match, lifecycle handlers resol
 - `Vary` was read as naming the headers a response carries; resolved: it names the request headers the response was selected from, and a response header there is a cache key of nothing.
 - Declaring a `Vary` was read as last-call-wins, the way a lifetime is; resolved: a lifetime is a policy one caller chooses for the response and a selecting header is a fact each layer knows a piece of, so declarations accumulate.
 - "Who may store this" was read as something a cache key could answer; resolved: a key selects between stored responses, and a response that must not be shared at all is a cache scope decision.
+- A route index was read as requiring most-specific-wins, the way the Go routers built on this shape resolve overlaps; resolved: **Registration-order match** is the rule an index has to preserve, so the tree carries the lowest registration order beneath each node and explores every branch that could beat the best it has.
