@@ -60,12 +60,8 @@ type Call struct {
 }
 
 func newCallFromRequest(w http.ResponseWriter, req *http.Request, config *Config, pathParams map[string]string) *Call {
-	govalinIDHeader := req.Header[headers.XGovalinID]
-
 	var uniqueID string
-	if govalinIDHeader == nil {
-		uniqueID = newCallID()
-	} else {
+	if govalinIDHeader := req.Header[headers.XGovalinID]; govalinIDHeader != nil {
 		uniqueID = govalinIDHeader[0]
 	}
 
@@ -390,8 +386,18 @@ func (call *Call) writtenStatus() int {
 	return call.status
 }
 
-// ID gives an UUIDv4 string that's unique to the call.
+// ID gives an UUIDv4 string that's unique to the call, or the caller's own ID
+// when the request carried an X-Govalin-Id header.
+//
+// The ID is minted on first use, so a request nobody asks the ID of never pays
+// for one; every later call on the same request gets the same string. Like the
+// rest of Call it belongs to the goroutine serving the request, so a handler
+// that fans out should read the ID before it does.
 func (call *Call) ID() string {
+	if call.id == "" {
+		call.id = newCallID()
+	}
+
 	return call.id
 }
 

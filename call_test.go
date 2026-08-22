@@ -404,6 +404,22 @@ func TestRequestID(t *testing.T) {
 	})
 }
 
+// TestRequestIDIsStableAcrossReads covers the ID being minted on first use: a
+// handler that reads it more than once gets one ID, not one per read.
+func TestRequestIDIsStableAcrossReads(t *testing.T) {
+	app := newTestApp()
+	app.Get("/govalin", func(call *govalin.Call) {
+		call.Text(call.ID() + " " + call.ID())
+	})
+
+	govalintest.Test(t, app, func(client *govalintest.Client) {
+		reads := strings.Fields(client.Get("/govalin"))
+
+		assert.Len(t, reads, 2, "Should have read the ID twice")
+		assert.Equal(t, reads[0], reads[1], "Should give the same ID on every read of a call")
+	})
+}
+
 func TestRedirect(t *testing.T) {
 	app := newTestApp()
 	app.Get("/govalin", func(call *govalin.Call) {
