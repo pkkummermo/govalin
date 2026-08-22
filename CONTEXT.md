@@ -327,6 +327,25 @@ the mux in front of it to have cleaned them first.
 _Avoid_: a route reachable only at the spelling it was registered with, a doubled slash matching,
 routing that assumes upstream path cleanup
 
+**Registration-order match**:
+The route that serves a URL is the first one registered whose pattern matches it — not the most
+specific one. Registration order is the author's tool for deciding which of two overlapping patterns
+wins, so a literal route registered after a parameter route that also matches is unreachable by
+design, not by accident.
+_Avoid_: most-specific-wins, longest-prefix-wins, an order-independent route table
+
+**Spanning wildcard**:
+A `*` route segment, which matches one or more characters across slashes rather than within a single
+segment. It is legal anywhere in a pattern, not only in the final position, so a pattern can hold a
+gap in its middle.
+_Avoid_: a wildcard confined to one segment, a catch-all valid only as the last segment
+
+**Lifecycle breadth**:
+Before and After handlers run for *every* route whose pattern matches the URL, while the request is
+served by exactly one. Matching for the lifecycle is a collection; matching for the handler is a
+choice.
+_Avoid_: a before handler shadowed by an earlier match, lifecycle handlers resolved like routes
+
 ## Relationships
 
 - A **Race-clean build** is a required outcome of the **Stability gate**
