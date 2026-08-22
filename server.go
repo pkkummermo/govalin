@@ -367,7 +367,9 @@ func (server *App) getPathHandlerByPath(path string) (*pathHandler, error) {
 }
 
 func (server *App) matchBeforeHandlers(call *Call) bool {
-	for _, pathHandler := range server.pathHandlers {
+	for i := range server.pathHandlers {
+		pathHandler := &server.pathHandlers[i]
+
 		if call.bypassLifecycle {
 			return false
 		}
@@ -398,7 +400,9 @@ func (server *App) matchHandlers(call *Call) {
 // callHandlerByMethod runs the first registered handler for the method whose
 // path matches the request, and reports whether the request was handled.
 func (server *App) callHandlerByMethod(call *Call, method string) bool {
-	for _, pathHandler := range server.pathHandlers {
+	for i := range server.pathHandlers {
+		pathHandler := &server.pathHandlers[i]
+
 		if call.bypassLifecycle {
 			return true
 		}
@@ -416,7 +420,9 @@ func (server *App) callHandlerByMethod(call *Call, method string) bool {
 }
 
 func (server *App) matchAfterHandlers(call *Call) {
-	for _, pathHandler := range server.pathHandlers {
+	for i := range server.pathHandlers {
+		pathHandler := &server.pathHandlers[i]
+
 		if call.bypassLifecycle {
 			return
 		}
