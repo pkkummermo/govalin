@@ -8,10 +8,11 @@ import (
 )
 
 // perfGateEnv turns the allocation gate on. It is off by default because the
-// budgets below hold for one Go version at a time: escape analysis and inlining
-// change between releases, and a compatibility-matrix job on another version
-// would fail on a difference that is not a regression. CI runs this on the
-// baseline toolchain only, the same way race detection is scoped.
+// budgets below hold for one Go version on one platform at a time: escape
+// analysis and inlining change between releases, and the static file shape
+// allocates differently per OS, so a run elsewhere fails on a difference that is
+// not a regression. CI runs this on the baseline toolchain on ubuntu, which is
+// where the numbers come from, the same way race detection is scoped.
 const perfGateEnv = "GOVALIN_PERF_GATE"
 
 // allocationBudget is what a request shape is allowed to allocate.
