@@ -890,11 +890,11 @@ func (call *Call) ValidatedFormParamAsInt(key string) *IntValidator {
 	return validator
 }
 
-// ValidatedBody returns a curryable body validator.
-func (call *Call) ValidatedBody(target interface{}) *BodyValidator {
-	return &BodyValidator{
+// ValidatedBody returns a curryable body validator that unmarshals the request
+// body into target when the chain is closed with Get.
+func (call *Call) ValidatedBody[T any](target *T) *BodyValidator[T] {
+	return &BodyValidator[T]{
 		call:   call,
 		target: target,
-		rules:  make([]func(interface{}) error, 0),
 	}
 }

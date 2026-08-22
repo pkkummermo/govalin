@@ -219,7 +219,6 @@ func TestValidatedBody(t *testing.T) {
 	app.Post("/validate-body", func(call *govalin.Call) {
 		var user TestUser
 
-		// Use generic validation methods on ValidatedBody - no validation package import needed!
 		err := call.ValidatedBody(&user).
 			ValidateField("Name").Required().MinLength(2).Get().
 			ValidateField("Email").Required().Email().Get().
@@ -404,14 +403,10 @@ func TestBodyValidatorCustom(t *testing.T) {
 	app.Post("/validate-body-custom-validator", func(call *govalin.Call) {
 		var user TestUser
 
-		// Use validation.WithTypedCustom for type-safe validation without manual type casting
-		validator := call.ValidatedBody(&user)
-		validator = validation.WithTypedCustom(validator, func(user TestUser) bool {
-			// Type-safe custom validation on the entire body - no casting needed!
-			return user.Name != "InvalidUser" && user.Age >= 18
-		}, "User validation failed: invalid user or under 18")
-
-		err := validator.
+		err := call.ValidatedBody(&user).
+			Custom(func(user TestUser) bool {
+				return user.Name != "InvalidUser" && user.Age >= 18
+			}, "User validation failed: invalid user or under 18").
 			ValidateField("Name").Required().MinLength(2).Get().
 			ValidateField("Email").Required().Email().Get().
 			Get()
@@ -444,27 +439,22 @@ func TestBodyValidatorCustom(t *testing.T) {
 	})
 }
 
-func TestBodyValidatorWithTypedCustom(t *testing.T) {
+func TestBodyValidatorCustomChained(t *testing.T) {
 	app := newTestApp()
 	app.Post("/validate-typed-custom", func(call *govalin.Call) {
 		var user TestUser
 
-		// Use validation.WithTyped for curryable type-safe validation without manual type casting
-		err := validation.WithTyped[TestUser](call.ValidatedBody(&user)).
+		err := call.ValidatedBody(&user).
 			Custom(func(user TestUser) bool {
-				// Type-safe custom validation - no casting needed!
-				// Test complex business rule: name must not contain "banned"
 				return user.Name != "banned"
 			}, "Name cannot be 'banned'").
 			Custom(func(user TestUser) bool {
-				// Chain another validation: email domain rules
 				if user.Email == "admin@test.com" && user.Age < 21 {
-					return false // Admin emails require age 21+
+					return false
 				}
 				return true
 			}, "Admin emails require age 21 or higher").
 			Custom(func(user TestUser) bool {
-				// Chain another validation: general minimum age requirement
 				return user.Age >= 13
 			}, "Must be at least 13 years old").
 			Get()
@@ -509,13 +499,12 @@ func TestBodyValidatorWithTypedCustom(t *testing.T) {
 	})
 }
 
-func TestCurryableTypedCustomValidation(t *testing.T) {
+func TestCurryableCustomBodyValidation(t *testing.T) {
 	app := newTestApp()
 	app.Post("/validate-curryable-typed", func(call *govalin.Call) {
 		var user TestUser
 
-		// Demonstrate the curryable API: WithTyped().Custom(...).Custom(...).Custom(...).Get()
-		err := validation.WithTyped[TestUser](call.ValidatedBody(&user)).
+		err := call.ValidatedBody(&user).
 			Custom(func(u TestUser) bool {
 				return len(u.Name) >= 2
 			}, "Name must be at least 2 characters").

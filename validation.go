@@ -28,15 +28,15 @@ type IntValidator struct {
 }
 
 // BodyValidator provides validation for request body.
-type BodyValidator struct {
+type BodyValidator[T any] struct {
 	call   *Call
-	target interface{}
-	rules  []func(interface{}) error
+	target *T
+	rules  []func(*T) error
 }
 
 // BodyFieldValidator allows chaining validation rules for a specific field.
-type BodyFieldValidator struct {
-	bodyValidator *BodyValidator
+type BodyFieldValidator[T any] struct {
+	bodyValidator *BodyValidator[T]
 	fieldName     string
 }
 
@@ -200,15 +200,11 @@ func (v *IntValidator) Get() (int, error) {
 
 // Body validation methods
 
-// AddRule adds a validation rule to the body validator (implements interface for validation package).
-func (v *BodyValidator) AddRule(rule func(interface{}) error) {
-	v.rules = append(v.rules, rule)
-}
-
-// Custom adds a custom validation rule for the entire body with type safety.
-func (v *BodyValidator) Custom(validatorFn func(interface{}) bool, message string) *BodyValidator {
-	v.rules = append(v.rules, func(data interface{}) error {
-		if !validatorFn(data) {
+// Custom adds a custom validation rule for the entire body. The rule receives
+// the unmarshalled body and attributes a failure to "body".
+func (v *BodyValidator[T]) Custom(validatorFn func(T) bool, message string) *BodyValidator[T] {
+	v.rules = append(v.rules, func(data *T) error {
+		if !validatorFn(*data) {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
 				validation.NewParameterErrorDetail("body", message),
@@ -220,7 +216,7 @@ func (v *BodyValidator) Custom(validatorFn func(interface{}) bool, message strin
 }
 
 // Get validates the body and returns error if invalid.
-func (v *BodyValidator) Get() error {
+func (v *BodyValidator[T]) Get() error {
 	if err := v.call.BodyAs(v.target); err != nil {
 		return err
 	}
@@ -234,16 +230,16 @@ func (v *BodyValidator) Get() error {
 }
 
 // ValidateField sets the current field for validation and returns a BodyFieldValidator.
-func (v *BodyValidator) ValidateField(fieldName string) *BodyFieldValidator {
-	return &BodyFieldValidator{
+func (v *BodyValidator[T]) ValidateField(fieldName string) *BodyFieldValidator[T] {
+	return &BodyFieldValidator[T]{
 		bodyValidator: v,
 		fieldName:     fieldName,
 	}
 }
 
 // Required adds a required validation rule for the current field.
-func (f *BodyFieldValidator) Required() *BodyFieldValidator {
-	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+func (f *BodyFieldValidator[T]) Required() *BodyFieldValidator[T] {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data *T) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
 		if !field.IsValid() {
@@ -265,8 +261,8 @@ func (f *BodyFieldValidator) Required() *BodyFieldValidator {
 }
 
 // MinLength adds a minimum length validation rule for string fields.
-func (f *BodyFieldValidator) MinLength(minimum int) *BodyFieldValidator {
-	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+func (f *BodyFieldValidator[T]) MinLength(minimum int) *BodyFieldValidator[T] {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data *T) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
 		if !field.IsValid() {
@@ -288,8 +284,8 @@ func (f *BodyFieldValidator) MinLength(minimum int) *BodyFieldValidator {
 }
 
 // MaxLength adds a maximum length validation rule for string fields.
-func (f *BodyFieldValidator) MaxLength(maximum int) *BodyFieldValidator {
-	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+func (f *BodyFieldValidator[T]) MaxLength(maximum int) *BodyFieldValidator[T] {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data *T) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
 		if !field.IsValid() {
@@ -311,8 +307,8 @@ func (f *BodyFieldValidator) MaxLength(maximum int) *BodyFieldValidator {
 }
 
 // Email adds an email validation rule for string fields.
-func (f *BodyFieldValidator) Email() *BodyFieldValidator {
-	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+func (f *BodyFieldValidator[T]) Email() *BodyFieldValidator[T] {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data *T) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
 		if !field.IsValid() {
@@ -337,8 +333,8 @@ func (f *BodyFieldValidator) Email() *BodyFieldValidator {
 }
 
 // Min adds a minimum value validation rule for integer fields.
-func (f *BodyFieldValidator) Min(minimum int) *BodyFieldValidator {
-	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+func (f *BodyFieldValidator[T]) Min(minimum int) *BodyFieldValidator[T] {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data *T) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
 		if !field.IsValid() {
@@ -360,8 +356,8 @@ func (f *BodyFieldValidator) Min(minimum int) *BodyFieldValidator {
 }
 
 // Max adds a maximum value validation rule for integer fields.
-func (f *BodyFieldValidator) Max(maximum int) *BodyFieldValidator {
-	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+func (f *BodyFieldValidator[T]) Max(maximum int) *BodyFieldValidator[T] {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data *T) error {
 		val := reflect.ValueOf(data).Elem()
 		field := val.FieldByName(f.fieldName)
 		if !field.IsValid() {
@@ -382,9 +378,10 @@ func (f *BodyFieldValidator) Max(maximum int) *BodyFieldValidator {
 	return f
 }
 
-// Custom adds a custom validation rule for the current field.
-func (f *BodyFieldValidator) Custom(validatorFn func(interface{}) bool, message string) *BodyFieldValidator {
-	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data interface{}) error {
+// Custom adds a custom validation rule that attributes its failure to the current
+// field. The rule receives a pointer to the whole body, not the field value.
+func (f *BodyFieldValidator[T]) Custom(validatorFn func(interface{}) bool, message string) *BodyFieldValidator[T] {
+	f.bodyValidator.rules = append(f.bodyValidator.rules, func(data *T) error {
 		if !validatorFn(data) {
 			return validation.NewError(validation.NewErrorResponse(
 				http.StatusBadRequest,
@@ -397,6 +394,6 @@ func (f *BodyFieldValidator) Custom(validatorFn func(interface{}) bool, message 
 }
 
 // Get completes the field validation and returns the body validator for more fields or final validation.
-func (f *BodyFieldValidator) Get() *BodyValidator {
+func (f *BodyFieldValidator[T]) Get() *BodyValidator[T] {
 	return f.bodyValidator
 }
