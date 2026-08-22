@@ -31,6 +31,39 @@ func main() {
 A route registered with `Get` also answers `HEAD`, as HTTP defines it: the handler runs and its body
 is dropped. Register `Head` explicitly on a route that can answer without producing one, and it wins.
 
+## Validating input
+
+`ValidatedBody` unmarshals the request body and checks it, naming each field with an accessor:
+
+```go
+app.Post("/users", func(call *govalin.Call) {
+	var user User
+
+	err := call.ValidatedBody(&user).
+		StringField("name", func(u User) string { return u.Name }).Required().MinLength(2).
+		StringField("email", func(u User) string { return u.Email }).Required().Email().
+		IntField("age", func(u User) int { return u.Age }).Min(18).Max(100).
+		Get()
+	if err != nil {
+		call.Error(err)
+		return
+	}
+
+	call.JSON(user)
+})
+```
+
+- The accessor is what makes the chain safe: a misspelled field, a `MinLength` on an int, or a rule
+  meant for another body are all compile errors rather than surprises at request time.
+- The name is yours to choose, and a failure is reported under it — pass the name the client sent,
+  not the Go field name.
+- `Custom` receives the whole body, so a check can depend on other fields while reporting under the
+  field it is chained onto — a `confirm` that has to match `password`, say. Chained before the
+  first field it reports under `"body"` instead.
+- Query, path and form parameters validate the same way, one value at a time:
+  `call.ValidatedQueryParam("name").Required().MinLength(3).Get()` returns the value and an error.
+- Lengths count characters, not bytes, so `café` is four of them and not five.
+
 ## Serving files and large bodies
 
 `Text`, `HTML` and `JSON` are for bodies that fit in memory. For anything bigger, `Call` streams:
