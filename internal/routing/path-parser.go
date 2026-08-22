@@ -3,15 +3,19 @@ package routing
 import (
 	"fmt"
 	"log/slog"
-	"regexp"
 	"strings"
 )
 
+// PathMatcher matches request URLs against one compiled route path.
 type PathMatcher struct {
-	pathParamNames []string
-	regexp         *regexp.Regexp
+	segments              []pathSegment
+	pathParamNames        []string
+	optionalTrailingSlash bool
+	matchesEverything     bool
 }
 
+// NewPathMatcherFromString compiles a route path into a matcher. It fails on a
+// path segment that is neither a literal, a '{name}' parameter nor a wildcard.
 func NewPathMatcherFromString(path string) (PathMatcher, error) {
 	// A path of nothing but slashes is the root spelled oddly, and a route fragment
 	// joined to a path produces it. The matcher has to match what the warning says it became.
@@ -20,17 +24,11 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 			slog.Warn(fmt.Sprintf("The path '%s' was converted to /", path))
 		}
 
-		return PathMatcher{
-			pathParamNames: []string{},
-			regexp:         regexp.MustCompile("^/$"),
-		}, nil
+		return PathMatcher{}, nil
 	}
 
-	if path == "*" {
-		return PathMatcher{
-			pathParamNames: []string{},
-			regexp:         regexp.MustCompile(".*?"),
-		}, nil
+	if path == wildcard {
+		return PathMatcher{matchesEverything: true}, nil
 	}
 
 	pathSegments, err := getPathSegments(path)
@@ -39,28 +37,16 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 	}
 
 	pathParamNames := []string{}
-	for _, ps := range pathSegments {
-		pathParamNames = append(pathParamNames, ps.PathNames...)
+	for _, segment := range pathSegments {
+		if segment.kind == parameterSegment {
+			pathParamNames = append(pathParamNames, segment.text)
+		}
 	}
-
-	groupRegexpParts := []string{}
-
-	for _, ps := range pathSegments {
-		groupRegexpParts = append(groupRegexpParts, ps.GroupedRegex)
-	}
-
-	// Appended after the join, not as a segment: a segment carries a mandatory slash in
-	// front of the optional one, leaving the pattern matching only the doubled form.
-	optionalTrailingSlash := ""
-	if strings.HasSuffix(path, "/") {
-		optionalTrailingSlash = "/?"
-	}
-
-	fullGroupedRegexpString := "^/" + strings.Join(groupRegexpParts, "/") + optionalTrailingSlash + "$"
 
 	return PathMatcher{
-		pathParamNames: pathParamNames,
-		regexp:         regexp.MustCompile(fullGroupedRegexpString),
+		segments:              pathSegments,
+		pathParamNames:        pathParamNames,
+		optionalTrailingSlash: strings.HasSuffix(path, "/"),
 	}, nil
 }
 
@@ -86,7 +72,9 @@ func getPathSegments(path string) ([]pathSegment, error) {
 
 // MatchesURL checks whether given string URL matches the path.
 func (path *PathMatcher) MatchesURL(url string) bool {
-	return path.regexp.MatchString(url)
+	_, matches := path.match(url, nil)
+
+	return matches
 }
 
 // PathParams extracts the path parameters from given string url according
@@ -100,17 +88,91 @@ func (path *PathMatcher) PathParams(url string) map[string]string {
 		return nil
 	}
 
-	pathparamMap := map[string]string{}
-	pathParams := path.regexp.FindStringSubmatch(url)
-
-	if len(pathParams) != len(path.pathParamNames)+1 {
-		slog.Error("The number of path params is not the same as configured path names")
-		return pathparamMap
+	values, matches := path.match(url, make([]string, 0, len(path.pathParamNames)))
+	if !matches {
+		slog.Error(fmt.Sprintf("The URL '%s' does not match the path it was asked for path params on", url))
+		return map[string]string{}
 	}
 
-	for i, v := range path.pathParamNames {
-		pathparamMap[v] = pathParams[i+1]
+	pathParamMap := make(map[string]string, len(values))
+	for i, name := range path.pathParamNames {
+		pathParamMap[name] = values[i]
 	}
 
-	return pathparamMap
+	return pathParamMap
+}
+
+// match walks the URL across the compiled segments, appending the values it
+// captures to values. A nil values skips capture, so the routes a request does
+// not match cost nothing to rule out.
+func (path *PathMatcher) match(url string, values []string) ([]string, bool) {
+	if path.matchesEverything {
+		return values, true
+	}
+
+	if len(url) == 0 || url[0] != '/' {
+		return values, false
+	}
+
+	return path.matchSegments(path.segments, url[1:], values)
+}
+
+// matchSegments matches segments against a URL positioned at the first
+// character of the first segment.
+func (path *PathMatcher) matchSegments(segments []pathSegment, url string, values []string) ([]string, bool) {
+	if len(segments) == 0 {
+		return values, url == "" || (path.optionalTrailingSlash && url == "/")
+	}
+
+	head, rest := segments[0], segments[1:]
+
+	switch head.kind {
+	case literalSegment:
+		if !strings.HasPrefix(url, head.text) {
+			return values, false
+		}
+
+		return path.matchSeparator(rest, url[len(head.text):], values)
+
+	case parameterSegment:
+		end := strings.IndexByte(url, '/')
+		if end < 0 {
+			end = len(url)
+		}
+		if end == 0 {
+			return values, false
+		}
+		if values != nil {
+			values = append(values, url[:end])
+		}
+
+		return path.matchSeparator(rest, url[end:], values)
+	}
+
+	// A wildcard spans separators and takes as little as it can, so the shortest
+	// remainder that lets the segments after it match is the one that wins.
+	if len(rest) == 0 {
+		return values, url != ""
+	}
+
+	for consumed := 1; consumed < len(url); consumed++ {
+		if captured, matches := path.matchSeparator(rest, url[consumed:], values); matches {
+			return captured, true
+		}
+	}
+
+	return values, false
+}
+
+// matchSeparator consumes the slash between two segments.
+func (path *PathMatcher) matchSeparator(segments []pathSegment, url string, values []string) ([]string, bool) {
+	if len(segments) == 0 {
+		return path.matchSegments(segments, url, values)
+	}
+
+	if len(url) == 0 || url[0] != '/' {
+		return values, false
+	}
+
+	return path.matchSegments(segments, url[1:], values)
 }

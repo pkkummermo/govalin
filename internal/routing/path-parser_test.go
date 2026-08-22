@@ -98,3 +98,34 @@ func TestParameterSegmentSpansTheWholePiece(t *testing.T) {
 	assert.Equal(t, false, pathMatcher.MatchesURL("/a/"), "Should not match an empty parameter")
 	assert.Equal(t, false, pathMatcher.MatchesURL("/a/foo/bar"), "Should not span a separator")
 }
+
+// TestWildcardBacktracksToTheSegmentsAfterIt covers the case a segment walk has
+// to get right and a left-to-right scan does not: a wildcard takes as little as
+// it can, so how much of the URL it swallows is only settled by whether the
+// segments after it still match.
+func TestWildcardBacktracksToTheSegmentsAfterIt(t *testing.T) {
+	pathMatcher, err := routing.NewPathMatcherFromString("/a/*/b/{id}")
+	assert.Nil(t, err)
+
+	assert.Equal(t, true, pathMatcher.MatchesURL("/a/x/b/1"), "Should match with the wildcard taking one piece")
+	assert.Equal(t, true, pathMatcher.MatchesURL("/a/x/y/z/b/1"), "Should match with the wildcard spanning separators")
+	assert.Equal(t, true, pathMatcher.MatchesURL("/a/b/b/1"), "Should pass over a piece the later literal also matches")
+	assert.Equal(t, false, pathMatcher.MatchesURL("/a/b/1"), "Should not match with nothing left for the wildcard")
+	assert.Equal(t, false, pathMatcher.MatchesURL("/a/x/b/1/2"), "Should not let the parameter span a separator")
+
+	assert.Equal(
+		t,
+		map[string]string{"id": "1"},
+		pathMatcher.PathParams("/a/x/y/b/1"),
+		"Should capture from the match the wildcard backtracked into",
+	)
+}
+
+// TestWildcardMatchesAnyCharacter pins the wildcard as any character: the
+// regexp it replaced skipped a newline a parameter in the same position accepted.
+func TestWildcardMatchesAnyCharacter(t *testing.T) {
+	pathMatcher, err := routing.NewPathMatcherFromString("/a/*")
+
+	assert.Nil(t, err)
+	assert.Equal(t, true, pathMatcher.MatchesURL("/a/x\ny"), "Should match a path holding a newline")
+}
