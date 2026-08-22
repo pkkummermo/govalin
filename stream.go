@@ -34,7 +34,7 @@ func (call *Call) Stream(contentType string, reader io.Reader) error {
 	// io.Copy cannot say which side failed, and the two sides call for opposite answers.
 	source := &sourceReader{reader: reader}
 
-	if _, err := io.Copy(call.w, source); err != nil {
+	if _, err := io.Copy(&call.w, source); err != nil {
 		if source.err != nil {
 			return fmt.Errorf("failed to read the streamed body. %w", source.err)
 		}
@@ -72,7 +72,7 @@ func (source *sourceReader) Read(buffer []byte) (int, error) {
 // http.ServeContent picks the status itself, so a status buffered with Status is
 // not used. The response is committed here and the lifecycle leaves it alone.
 func (call *Call) ServeContent(name string, modTime time.Time, content io.ReadSeeker) {
-	http.ServeContent(call.w, call.req, name, modTime, content)
+	http.ServeContent(&call.w, call.req, name, modTime, content)
 
 	// After handlers read the buffered status, so it has to match what went out.
 	call.status = call.w.status
