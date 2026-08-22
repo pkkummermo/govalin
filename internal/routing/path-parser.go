@@ -9,7 +9,7 @@ import (
 
 type PathMatcher struct {
 	pathParamNames []string
-	regexp         regexp.Regexp
+	regexp         *regexp.Regexp
 }
 
 func NewPathMatcherFromString(path string) (PathMatcher, error) {
@@ -22,14 +22,14 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 
 		return PathMatcher{
 			pathParamNames: []string{},
-			regexp:         *regexp.MustCompile("^/$"),
+			regexp:         regexp.MustCompile("^/$"),
 		}, nil
 	}
 
 	if path == "*" {
 		return PathMatcher{
 			pathParamNames: []string{},
-			regexp:         *regexp.MustCompile(".*?"),
+			regexp:         regexp.MustCompile(".*?"),
 		}, nil
 	}
 
@@ -60,7 +60,7 @@ func NewPathMatcherFromString(path string) (PathMatcher, error) {
 
 	return PathMatcher{
 		pathParamNames: pathParamNames,
-		regexp:         *regexp.MustCompile(fullGroupedRegexpString),
+		regexp:         regexp.MustCompile(fullGroupedRegexpString),
 	}, nil
 }
 
